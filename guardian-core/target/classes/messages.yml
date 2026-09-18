@@ -1,0 +1,27 @@
+# =============================================================================
+#  Guardian — messages.yml
+#  All user-facing text. MiniMessage format is supported and preferred.
+# =============================================================================
+
+alert-format: "<dark_gray>[<gradient:#ffcc00:#ff6600><bold>G</bold></gradient><dark_gray>] <white>{player} <gray>failed <yellow>{check} <dark_gray>({category}) <gray>VL <red>{vl} <dark_gray>| <gray>{debug}"
+
+punishment-format: "<dark_gray>[<gradient:#ffcc00:#ff6600><bold>G</bold></gradient><dark_gray>] <red><bold>PUNISH</bold> <white>{player} <gray>via <yellow>{source} <gray>at VL <red>{vl} <dark_gray>(threshold {threshold})"
+
+debug-format: "<dark_gray>[<aqua>DEBUG</aqua>] <gray>%s"
+
+profile-header: "<gold>Guardian profile: <white>%s"
+profile-empty: "<gray>No violations recorded this session."
+
+history-header: "<gold>Guardian history: <white>%s"
+history-empty: "<gray>No history for that player."
+
+reload-success: "<green>Guardian reloaded."
+no-permission: "<red>You do not have permission for that."
+unknown-check: "<red>Unknown check: %s"
+unknown-player: "<red>Unknown player: %s"
+
+alerts-enabled: "<green>Guardian alerts enabled."
+alerts-disabled: "<gray>Guardian alerts disabled."
+
+debug-enabled: "<gray>Debug for <white>%s <gray>is now <green>ON"
+debug-disabled: "<gray>Debug for <white>%s <gray>is now <red>OFF"

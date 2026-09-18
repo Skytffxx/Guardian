@@ -1,0 +1,412 @@
+# =============================================================================
+#  Guardian — config.yml
+#  by skyzzz
+#
+#  CONFIGURABILITY CONTRACT
+#  ------------------------
+#  Roughly 85–90% of Guardian's behaviour is tunable below: per-check enable,
+#  thresholds, VL weights, decay rates, punishment tiers, exemptions, Bedrock
+#  multipliers, buffer sizes and thread-pool sizing.
+#
+#  The remaining 10–15% is deliberately HARDCODED and will not respond to edits
+#  here:
+#    * core packet sanity validation (NaN positions, out-of-bounds coordinates,
+#      invalid pitch, malformed packet bodies) — see PacketSanityCheck
+#    * the anti-tamper logic that protects the check pipeline itself
+#    * the dispatch order and fail-safe that disables a throwing check
+#
+#  A fully config-editable sanity layer is a bypass, not a feature. If you need
+#  to change one of those behaviours, you need a code change — by design.
+#
+#  TUNING ORDER (read TUNING.md before touching thresholds)
+#  1. false-positives.*     — get latency/TPS/Bedrock scaling right first
+#  2. violations.*          — decay rate controls how forgiving VL is
+#  3. checks.*              — then tune individual thresholds
+#  4. punishments.*         — last, once you trust the signal
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+#  Performance
+# -----------------------------------------------------------------------------
+performance:
+  # 200+ concurrent players must show no measurable TPS impact.
+  # If you raise these, watch the profile: sub-millisecond main-thread cost per
+  # player per tick is the budget.
+  position-history-size: 40       # ticks of position history kept per player
+  click-history-size: 40          # clicks kept for autoclicker statistics
+  async-thread-pool-size: 2       # packet parsing / math-heavy checks
+  max-dispatch-nanos-per-tick: 1000000   # 1ms soft budget; logged when exceeded
+
+# -----------------------------------------------------------------------------
+#  Violations
+# -----------------------------------------------------------------------------
+violations:
+  # VL decays every second by this amount. This is the single strongest lever
+  # against false positives: a lag spike raises VL, then it bleeds away.
+  decay-per-second: 0.35
+  # VL is capped per check at this value.
+  ceiling: 1000.0
+  # Awarded when a check observes demonstrably clean behaviour.
+  clean-play-reward-multiplier: 1.0
+  # Reset all VL when a player disconnects (false: persist in-session only).
+  reset-on-quit: true
+
+# -----------------------------------------------------------------------------
+#  False-positive minimisation
+# -----------------------------------------------------------------------------
+false-positives:
+  # Bedrock thresholds are MULTIPLIED by this, never exempted. Full exemption
+  # just becomes a labelled bypass.
+  bedrock-threshold-multiplier: 1.35
+  # Timing thresholds scale with TPS so a lag spike never reads as a cheat.
+  tps-compensation:
+    enabled: true
+    reference-tps: 20.0
+    maximum-factor: 2.0
+  # Reach/interaction distance scales with ping.
+  ping-compensation:
+    enabled: true
+    blocks-per-ms: 0.0022
+    maximum-blocks: 0.35
+  # Exemptions. Creative and spectator are ALWAYS exempt from combat and
+  # movement checks regardless of what is listed here.
+  exemptions:
+    gamemodes:
+      - CREATIVE
+      - SPECTATOR
+    worlds: []                   # e.g. [ "creative_plots", "lobby" ]
+    permissions:
+      - guardian.exempt
+    regions: []                  # WorldGuard region ids, requires WG present
+
+# -----------------------------------------------------------------------------
+#  Punishments
+#  Commands fire from console, so any command-based punishment plugin works:
+#  LiteBans, AdvancedBan, vanilla, a custom script — Guardian does not care.
+# -----------------------------------------------------------------------------
+punishments:
+  global:
+    tiers:
+      - threshold: 20.0
+        cooldown-seconds: 60
+        commands:
+          - "guardian:guardian history {player} 10"
+          - "say {player} is being reviewed by Guardian ({check} VL {vl})"
+  categories:
+    combat:
+      tiers:
+        - threshold: 35.0
+          cooldown-seconds: 120
+          commands:
+            - "kick {player} Unfair combat advantages detected ({check})"
+    movement:
+      tiers:
+        - threshold: 35.0
+          cooldown-seconds: 120
+          commands:
+            - "kick {player} Unfair movement detected ({check})"
+  checks:
+    killaura:
+      tiers:
+        - threshold: 15.0
+          cooldown-seconds: 180
+          commands:
+            - "tempban {player} 3d Killaura ({check} VL {vl})"
+    reach:
+      tiers:
+        - threshold: 18.0
+          cooldown-seconds: 180
+          commands:
+            - "tempban {player} 3d Reach ({check} VL {vl})"
+    # xray intentionally has NO punishment tiers. It is review-only.
+    xray:
+      tiers: []
+
+# -----------------------------------------------------------------------------
+#  Alerts
+# -----------------------------------------------------------------------------
+alerts:
+  throttle-ms: 1500              # minimum gap between alerts for the same check
+
+discord:
+  enabled: false
+  webhook-url: "https://discord.com/api/webhooks/CHANGE_ME"
+  minimum-vl: 3.0
+  include-server-name: true
+
+# -----------------------------------------------------------------------------
+#  Storage
+#  Storage is OPTIONAL. Guardian runs fine on the in-memory store.
+# -----------------------------------------------------------------------------
+storage:
+  type: MEMORY                   # MEMORY | SQLITE | MYSQL | MARIADB
+  pool-size: 4
+  sqlite:
+    file: violations.db
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    database: guardian
+    username: root
+    password: ""
+
+# -----------------------------------------------------------------------------
+#  Checks
+#  Every check is independently toggleable. Disabling one never touches another.
+#  vl-weight scales how much a single flag from that check moves the VL.
+# -----------------------------------------------------------------------------
+checks:
+
+  # ---------------------------------------------------------------------------
+  #  COMBAT
+  # ---------------------------------------------------------------------------
+  combat:
+    killaura:
+      enabled: true
+      vl-weight: 1.0
+      multi-target-streak: 2      # same-tick attacks on different entities
+      no-swing-streak: 4
+      through-wall-streak: 3
+
+    reach:
+      enabled: true
+      vl-weight: 1.0
+      max-reach: 3.0              # vanilla survival reach
+      buffer: 0.08
+      ping-compensation-per-ms: 0.0022
+      ping-compensation-cap: 0.35
+      minimum-excess: 0.03
+      window-size: 12
+      required-flags: 5           # rolling-window corroboration
+      weight-per-block: 0.25
+      max-weight: 3.0
+      clean-reward: 0.15
+
+    autoclicker:
+      enabled: true
+      vl-weight: 1.0
+      # Raw CPS is deliberately NOT the trigger. Consistency is.
+      minimum-cps: 8.0
+      min-samples: 25
+      min-coefficient-of-variation: 0.075
+      max-duplicate-ratio: 0.35
+      duplicate-tolerance-ms: 2
+      clean-reward: 0.10
+
+    aim:
+      enabled: true
+      vl-weight: 1.0
+      window-size: 40
+      min-gcd: 0.009
+      required-above-ratio: 0.72
+      ignore-above-yaw-delta: 90.0
+      ignore-above-pitch-delta: 60.0
+      clean-reward: 0.20
+
+    velocity:
+      enabled: false              # inert until the velocity feed lands
+      vl-weight: 1.0
+
+    fakecriticals:
+      enabled: false              # inert until AttackData carries crit claims
+      vl-weight: 1.0
+
+  # ---------------------------------------------------------------------------
+  #  MOVEMENT
+  # ---------------------------------------------------------------------------
+  movement:
+    speed:
+      enabled: true
+      vl-weight: 1.0
+      base-sprint: 0.288
+      base-air: 0.221
+      buffer: 0.045
+      jump-multiplier: 1.05
+      soul-speed-multiplier: 1.30
+      depth-strider-multiplier: 1.15
+      ice-multiplier: 2.40
+      slime-multiplier: 1.60
+      water-multiplier: 0.75
+      ladder-multiplier: 0.90
+      tps-compensation-factor: 1.35
+      max-ping-compensation: 0.35
+      window-size: 12
+      required-flags: 6
+      minimum-excess: 0.02
+      weight-per-block: 0.05
+      max-weight: 3.0
+      clean-reward: 0.08
+
+    fly:
+      enabled: true
+      vl-weight: 1.0
+      minimum-air-ticks: 8
+      gravity-grace-ticks: 6
+      falling-threshold: 0.12
+      gravity-minimum-fall: 0.02
+      gravity-max-delta-change: 0.005
+      hover-ticks: 14
+      gravity-violations: 12
+      clean-reward: 0.10
+
+    nofall:
+      enabled: true
+      vl-weight: 1.0
+      minimum-fall-distance: 1.5
+      required-flags: 3
+
+    jesus:
+      enabled: false              # needs block-material feed from core
+      vl-weight: 1.0
+
+    phase:
+      enabled: false              # needs AABB sweep
+      vl-weight: 1.0
+
+    step:
+      enabled: true
+      vl-weight: 1.0
+      max-step: 0.6
+      step-per-jump-boost-level: 0.10
+      soul-speed-step-bonus: 0.35
+      buffer: 0.02
+      minimum-horizontal: 0.01
+      required-flags: 2
+
+    sneak:
+      enabled: false
+      vl-weight: 1.0
+
+    timer:
+      enabled: true
+      vl-weight: 1.0
+      balance-threshold: 90.0
+      max-positive-balance: 250.0
+      max-negative-balance: 150.0
+      ignore-above-ms: 250.0
+
+    elytra:
+      enabled: false              # needs glide + firework metadata feed
+      vl-weight: 1.0
+
+    vehicle:
+      enabled: false              # needs ridden-entity position feed
+      vl-weight: 1.0
+
+  # ---------------------------------------------------------------------------
+  #  WORLD INTERACTION
+  # ---------------------------------------------------------------------------
+  world:
+    scaffold:
+      enabled: true
+      vl-weight: 1.0
+      line-of-sight-minimum-distance: 1.0
+      rotation-miss-streak: 4
+      below-feet-threshold: 1.2
+      tower-minimum-pitch: 55.0   # scaled by the Bedrock multiplier
+      tower-miss-streak: 4
+      minimum-interval-ms: 85.0
+      rapid-place-streak: 8
+
+    fastplace:
+      enabled: true
+      vl-weight: 1.0
+      minimum-interval-ms: 45.0
+      ignore-above-ms: 500.0
+      required-flags: 5
+
+    fastbreak:
+      enabled: false              # needs server-side hardness calculation
+      vl-weight: 1.0
+
+    nuker:
+      enabled: true
+      vl-weight: 1.0
+      max-breaks-per-tick: 1
+      window-size: 20
+      max-mean-breaks-per-tick: 0.85
+
+    autotool:
+      enabled: false              # needs held-item switch timestamps
+      vl-weight: 1.0
+
+    blockreach:
+      enabled: true
+      vl-weight: 1.0
+      max-reach: 4.5
+      buffer: 0.10
+      ping-compensation-per-ms: 0.0022
+      ping-compensation-cap: 0.40
+      weight-per-block: 0.25
+      max-weight: 3.0
+
+    xray:
+      enabled: true
+      vl-weight: 1.0
+      # REVIEW-ONLY. This check never auto-punishes; the punishment tier for it
+      # is intentionally empty above. The signal is inherently probabilistic —
+      # caving, branch mining and plain luck all look similar.
+      review-only: true
+      window-seconds: 600.0
+      minimum-breaks: 60
+      ore-ratio-threshold: 0.55
+
+  # ---------------------------------------------------------------------------
+  #  PLAYER / INVENTORY
+  # ---------------------------------------------------------------------------
+  player:
+    fastuse:
+      enabled: true
+      vl-weight: 1.0
+      expected-duration-ms: 1610.0
+      tolerance-ms: 120.0
+      required-flags: 2
+
+    autorespawn:
+      enabled: true
+      vl-weight: 1.0
+      minimum-reaction-ms: 150.0
+
+    regen:
+      enabled: false              # needs health history feed
+      vl-weight: 1.0
+
+    inventory:
+      enabled: false              # needs window/slot tracking
+      vl-weight: 1.0
+
+  # ---------------------------------------------------------------------------
+  #  PACKET / PROTOCOL
+  # ---------------------------------------------------------------------------
+  packet:
+    packetsanity:
+      enabled: true
+      vl-weight: 1.0
+      # NOTE: this check ignores `enabled: false`. Core packet sanity is part of
+      # the hardcoded 10–15% — disabling it is a bypass, not a configuration.
+      coordinate-ceiling: 3.0E7
+      max-tick-distance: 100.0
+
+    flood:
+      enabled: true
+      vl-weight: 1.0
+      soft-limit-per-second: 400
+      hard-limit-per-second: 900
+      soft-required-seconds: 3
+      window-seconds: 5
+
+    clientbrand:
+      enabled: true
+      vl-weight: 1.0
+      blocked-signatures:
+        - "wurst"
+        - "impact"
+        - "meteor"
+        - "future"
+        - "sigma"
+        - "novoline"
+        - "astolfo"
+
+    pingspoof:
+      enabled: false              # needs keep-alive id tracking
+      vl-weight: 1.0

@@ -1,0 +1,72 @@
+name: Guardian
+version: '${project.version}'
+main: com.skyzzz.guardian.core.GuardianPlugin
+api-version: '1.21'
+authors: [skyzzz]
+description: Crossplay-aware, low-false-positive anticheat for Paper/Spigot
+website: https://github.com/skyzzz/guardian
+
+# PacketEvents is a hard requirement: Guardian is built on its multi-version
+# packet wrappers rather than per-version NMS branching.
+depend:
+  - packetevents
+
+softdepend:
+  - ViaVersion
+  - ViaBackwards
+  - ViaRewind
+  - floodgate
+  - Geyser-Spigot
+  - LuckPerms
+  - PlaceholderAPI
+  - Vault
+
+folia-supported: true
+
+commands:
+  guardian:
+    description: Guardian anticheat administration
+    aliases: [guard, gac]
+    usage: /guardian help
+    permission: guardian.command
+
+permissions:
+  guardian.command:
+    description: Access to the base Guardian command
+    default: op
+  guardian.command.profile:
+    description: View live check status and VL breakdown
+    default: op
+  guardian.command.check:
+    description: Toggle individual checks
+    default: op
+  guardian.command.debug:
+    description: Toggle per-check verbose logging
+    default: op
+  guardian.command.history:
+    description: Browse stored violation history
+    default: op
+  guardian.command.reload:
+    description: Reload config.yml and messages.yml
+    default: op
+  guardian.alerts:
+    description: Receive live flag notifications
+    default: op
+  guardian.exempt:
+    description: Fully exempt from all checks
+    default: false
+  guardian.exempt.combat:
+    description: Exempt from combat checks
+    default: false
+  guardian.exempt.movement:
+    description: Exempt from movement checks
+    default: false
+  guardian.exempt.world:
+    description: Exempt from world-interaction checks
+    default: false
+  guardian.exempt.player:
+    description: Exempt from player/inventory checks
+    default: false
+  guardian.exempt.packet:
+    description: Exempt from packet-level checks
+    default: false
