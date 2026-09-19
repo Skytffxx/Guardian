@@ -38,7 +38,7 @@ public final class Banner {
     };
 
     /** Per-row colour: gold at the top fading to ember at the bottom. */
-    private static final TextColor[] ROW_COLORS = { GOLD, GOLD, AMBER, AMBER, ORANGE, EMBER };
+    private static final TextColor[] ROW_COLORS = { GREEN, GREEN, GREEN, ERROR, ERROR, ERROR };
 
     /** Widest logo row — used to centre the subtitle lines underneath. */
     private static final int WIDTH = computeWidth();
@@ -63,7 +63,6 @@ public final class Banner {
         send(Component.text(center("Anticheat  ·  by skyzzz"), GOLD)
                 .decoration(TextDecoration.BOLD, false));
         send(Component.text(center("v" + version + "  ·  Crossplay ready"), MUTED));
-        send(Component.text(center("github.com/Skytffxx/Guardian"), DARK));
         blank();
         rule();
         blank();
