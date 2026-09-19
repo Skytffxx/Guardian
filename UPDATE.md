@@ -1,76 +1,69 @@
-# Guardian — Update Log
+# Guardian — Changelog
 
-Every release and what changed. Newest first.
+All notable changes to the plugin. Newest first.
 
 ---
 
 ## v1.0.1 — 2026-09-19
 
-Bug-fix + performance + Bedrock release. All 31 checks verified against the
-full `src/` deep scan.
+### Fixed
+- **FastUse detection now works** — eat/drink speed is actually measured again,
+  so finishing food or potions faster than vanilla allows is flagged.
+- **World checks now receive events** — Scaffold, FastPlace, FastBreak, Nuker,
+  AutoTool, BlockReach and the Xray heuristic were silently getting no data and
+  could never trigger. They are all live now.
+- **Nuker no longer flags instant-break blocks** — grass, flowers, torches,
+  snow layers and similar zero-hardness blocks are correctly ignored.
+- **BlockReach rewritten** — now covers both placing and breaking, evaluates
+  over a rolling window instead of flagging on a single interaction, and
+  forgives clean interactions. Fewer false positives.
+- **Packet detection works across versions** — KeepAlive, click-window,
+  client-settings and related detections no longer miss packets because of
+  naming differences between server versions.
+- **FastBreak false positives after teleports/pauses** — break intervals split
+  by a teleport, world change or long pause no longer count as one fast break
+  (new `ignore-above-ms` setting, default 10 seconds).
+- **Xray review-only mode respected** — the Xray heuristic can no longer
+  auto-punish; it only raises review-level alerts as intended.
+- **Teleport handling no longer leaks scheduled tasks** — repeated teleports
+  used to pile up background tasks; grace flags are now cleared with a single
+  one-shot task.
 
-### Bug fixes
-- **`AbstractCheck.b()` ignored its default** — returned `false` instead of the
-  caller's default when settings were unbound. `XrayHeuristicCheck`'s
-  `review-only` gate now works correctly.
-- **`FastUseCheck` was dead** (`last-use-duration-ms` never set anywhere).
-  Wired end-to-end: `onInteract` stamps `use-start-nanos` for edibles /
-  potions / milk / honey, new `PlayerItemConsumeEvent` handler computes the
-  duration and dispatches a synthetic `USE_ITEM` packet so the check fires.
-- **World pipeline was dead** — nothing ever called `dispatchBlockPlace` /
-  `dispatchBlockBreak`, so `scaffold`, `fastplace`, `fastbreak`, `nuker`,
-  `autotool`, `blockreach`, `xray` never received events. New
-  `onBlockPlace` / `onBlockBreak` handlers in `ProfileListener` build
-  `BlockPlaceData` / `BlockBreakData` (center-of-block eye distance,
-  `hasLineOfSight(Location)`, face id from against→placed delta) and dispatch.
-- **`NukerCheck.instantBreak` was dead** — `BlockBreakData.instantBreak` was
-  always `false`. Core now resolves it via hardness-0 + flora/redstone list
-  (`isInstantBreak`), and `NukerCheck` skips instant-break blocks.
-- **`BlockReachCheck` half-wired + instant-flag** — only handled places and
-  flagged on the first offence with no window. Now handles places **and**
-  breaks (break distance via `last-break-eye-distance` attribute), uses a
-  `RollingWindow(8)` requiring 3/8 over `minimum-excess 0.05`, with
-  clean-reward decay. New config keys: `window-size`, `required-flags`,
-  `minimum-excess`.
-- **Packet-name matching was version-fragile** — `packetName().contains(...)`
-  fails on PacketEvents `UPPER_SNAKE` names (`KEEP_ALIVE` vs `KeepAlive`).
-  New `PacketData.matchesName()` normalizes both sides (lowercase, strip
-  non-alphanumerics). Migrated: `fastuse`, `autorespawn`, `inventory`,
-  `clientbrand`, `pingspoof` (send + receive).
-- **`FastBreakCheck` stale-interval false positives** — new
-  `ignore-above-ms: 10000` guard resets the streak on teleport / world-change /
-  long-pause gaps.
-
-### Bedrock / hooks
-- `FloodgateHook`: **Geyser-Spigot standalone fallback** (`connectionByUuid`
-  reflectively, no hard dep) + **30 s per-player TTL cache** + `invalidate()`
-  on quit + cache cleared on reload.
-- New `GuardianProfileManager.refreshPlatform()`; `reloadEverything()` refreshes
-  online players' platform/scale so Floodgate/Geyser installs are picked up
-  without rejoin.
-- `VelocityCheck`: new `bedrock-knockback-scale: 0.8` config — Bedrock knockback
-  reads weaker through touch-input latency.
+### Bedrock support
+- **Geyser servers without Floodgate are detected** — Bedrock players get their
+  leniency thresholds even when only Geyser-Spigot is installed.
+- **Faster Bedrock detection** — platform lookups are cached per player instead
+  of hitting the API every time.
+- **Reload picks up Bedrock installs** — `/guardian reload` re-checks online
+  players, so installing Geyser/Floodgate no longer requires everyone to rejoin.
+- **Velocity is fairer on Bedrock** — new `bedrock-knockback-scale` setting
+  (default `0.8`) accounts for weaker-feeling knockback over touch input.
 
 ### Performance
-- `CheckRegistryImpl`: **cached dispatch snapshots** rebuilt only on
-  register/unregister/reload/toggle/auto-disable — hot path no longer walks
-  category maps per packet.
-- `ProfileListener.onMove` (hottest handler): **25 ms throttle** + block-change
-  trigger, single `getLocation()` reused, vehicle `getLocation()` skipped when
-  not riding.
-- **Teleport-grace task leak fixed** — old code spawned a never-cancelled
-  repeating task per teleport; now a one-shot delayed clear via new
-  `Schedulers.runSyncDelayed()` (Folia-safe).
+- **Faster packet handling** — the check pipeline now uses cached dispatch
+  lists instead of rebuilding them on every packet.
+- **Lighter movement tracking** — per-move scans are throttled and skip
+  redundant world lookups (notably for players not in vehicles).
 
-### Version
-- `1.0.0-SNAPSHOT` → `1.0.1` across parent + 3 module poms and README.
-- Deploy artifact is now `guardian-core/target/Guardian-1.0.1.jar`.
+### New config options
+- `checks.world.blockreach.window-size` (8), `required-flags` (3),
+  `minimum-excess` (0.05)
+- `checks.world.fastbreak.ignore-above-ms` (10000.0)
+- `checks.combat.velocity.bedrock-knockback-scale` (0.8)
+
+### Upgrade notes
+- Version is now `1.0.1`; deploy artifact is `Guardian-1.0.1.jar`.
+- No config migration needed — new keys fall back to documented defaults, and
+  missing keys are merged in automatically on first start.
 
 ---
 
-## v1.0.0-SNAPSHOT — initial development baseline
+## v1.0.0 — initial release
 
-- 3-module layout (`guardian-api` / `guardian-checks` / `guardian-core`),
-  31 checks via `CheckBootstrap`, PacketEvents pipeline, VL + tiered
-  punishments, memory/SQLite/MySQL stores, `/guardian` command suite,
-  Floodgate/LuckPerms/Vault/PlaceholderAPI/bStats integrations, replay harness.
+- 31 detections across combat, movement, world, player and packet categories.
+- Violation-level system with decay, clean-play credit and tiered punishments.
+- Crossplay-aware thresholds for Bedrock (Geyser/Floodgate) players.
+- Memory, SQLite and MySQL violation history plus `/guardian` staff commands.
+- Optional integrations: LuckPerms, Vault, PlaceholderAPI, Discord webhooks,
+  bStats metrics, and a movement-replay testing tool.
+
