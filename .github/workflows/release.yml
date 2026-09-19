@@ -3,6 +3,8 @@ on:
   push:
     tags:
       - 'v*'
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,7 +14,10 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-      - run: mvn clean package
+      - run: mvn -B -DskipTests clean package
+      - run: ls -la guardian-core/target/*.jar
       - uses: softprops/action-gh-release@v2
         with:
           files: guardian-core/target/Guardian-*.jar
+          fail_on_unmatched_files: true
+          generate_release_notes: true
