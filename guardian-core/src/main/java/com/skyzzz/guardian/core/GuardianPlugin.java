@@ -3,6 +3,7 @@ package com.skyzzz.guardian.core;
 import com.skyzzz.guardian.api.GuardianAPI;
 import com.skyzzz.guardian.api.check.Check;
 import com.skyzzz.guardian.api.check.CheckRegistry;
+import com.skyzzz.guardian.core.check.CheckRegistryImpl;
 import com.skyzzz.guardian.api.player.ProfileManager;
 import com.skyzzz.guardian.api.violation.ViolationStore;
 import com.skyzzz.guardian.checks.CheckBootstrap;

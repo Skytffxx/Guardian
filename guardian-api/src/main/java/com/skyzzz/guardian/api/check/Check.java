@@ -50,7 +50,9 @@ public interface Check {
 
     default void onTick(PlayerProfile profile) {
     }
-
+    
+    default void onDamage(PlayerProfile profile, com.skyzzz.guardian.api.data.DamageData damage) {
+    }
     // ---- lifecycle -----------------------------------------------------
     default void onJoin(PlayerProfile profile) {
     }

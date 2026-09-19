@@ -1,15 +1,15 @@
 package com.skyzzz.guardian.api.check;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+
 import com.skyzzz.guardian.api.data.AttackData;
 import com.skyzzz.guardian.api.data.BlockBreakData;
 import com.skyzzz.guardian.api.data.BlockPlaceData;
 import com.skyzzz.guardian.api.data.MoveData;
 import com.skyzzz.guardian.api.data.PacketData;
 import com.skyzzz.guardian.api.player.PlayerProfile;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
 
 public interface CheckRegistry {
 
@@ -29,6 +29,8 @@ public interface CheckRegistry {
     void reloadAll();
 
     // ---- dispatch ---------------------------------------------------------
+    
+    void dispatchDamage(PlayerProfile profile, com.skyzzz.guardian.api.data.DamageData damage);
 
     void dispatchPacketReceive(PlayerProfile profile, PacketData data);
 

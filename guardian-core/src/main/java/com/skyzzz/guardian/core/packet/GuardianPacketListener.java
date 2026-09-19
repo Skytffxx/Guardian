@@ -4,11 +4,12 @@ import com.github.retrooper.packetevents.event.PacketListener;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientClickWindow;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientInteractEntity;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientKeepAlive;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPosition;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPositionAndRotation;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerRotation;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityVelocity;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerKeepAlive;
 import com.skyzzz.guardian.api.PacketDirection;
 import com.skyzzz.guardian.api.data.AttackData;
 import com.skyzzz.guardian.api.data.MoveData;
@@ -19,7 +20,6 @@ import com.skyzzz.guardian.core.GuardianPlugin;
 import com.skyzzz.guardian.core.check.CheckRegistryImpl;
 import com.skyzzz.guardian.core.player.GuardianProfile;
 import com.skyzzz.guardian.core.player.GuardianProfileManager;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.util.BoundingBox;
@@ -52,17 +52,35 @@ public final class GuardianPacketListener implements PacketListener {
         if (player == null) {
             return;
         }
-        GuardianProfile profile = profiles.get(player.getUniqueId());
+        GuardianProfile profile = (GuardianProfile) profiles.get(player.getUniqueId());
         if (profile == null) {
             return;
         }
 
         long now = System.nanoTime();
-        Object packet = event.getPacketType();
 
         PacketData data = new PacketData(event.getPacketType(), event.getPacketType().getClass(),
                 event.getPacketType().getName(), PacketDirection.INBOUND, now);
         registry.dispatchPacketReceive(profile, data);
+
+        // --- inventory click window: capture slot for InventoryCheck ---
+        if (event.getPacketType() == PacketType.Play.Client.CLICK_WINDOW) {
+            try {
+                WrapperPlayClientClickWindow click = new WrapperPlayClientClickWindow(event);
+                profile.setAttribute("last-click-slot", click.getSlot());
+                profile.setAttribute("last-click-window-id", click.getWindowId());
+            } catch (Throwable ignored) {
+                // Protocol variation across versions — fall through rather than crash dispatch.
+            }
+        }
+
+        // --- keep-alive response ---
+        if (event.getPacketType() == PacketType.Play.Client.KEEP_ALIVE) {
+            WrapperPlayClientKeepAlive ka = new WrapperPlayClientKeepAlive(event);
+            profile.setAttribute("keepalive-response-id", ka.getId());
+            profile.setAttribute("keepalive-response-nanos", System.nanoTime());
+            return;
+        }
 
         // --- movement packets: fully async, no world access needed ---
         if (event.getPacketType() == PacketType.Play.Client.PLAYER_FLYING
@@ -160,8 +178,30 @@ public final class GuardianPacketListener implements PacketListener {
         if (profile == null) {
             return;
         }
+
         PacketData data = new PacketData(event.getPacketType(), event.getPacketType().getClass(),
                 event.getPacketType().getName(), PacketDirection.OUTBOUND, System.nanoTime());
         registry.dispatchPacketSend(profile, data);
+
+        // --- outbound velocity ---
+        if (event.getPacketType() == PacketType.Play.Server.ENTITY_VELOCITY) {
+            WrapperPlayServerEntityVelocity velocity = new WrapperPlayServerEntityVelocity(event);
+            Integer entityId = event.getUser().getEntityId();
+            if (entityId != null && velocity.getEntityId() == entityId) {
+                profile.setAttribute("velocity-x", (double) velocity.getVelocity().getX());
+                profile.setAttribute("velocity-y", (double) velocity.getVelocity().getY());
+                profile.setAttribute("velocity-z", (double) velocity.getVelocity().getZ());
+                profile.setAttribute("velocity-tick", profile.tick());
+                profile.setAttribute("velocity-x-applied", null);
+                profile.setAttribute("velocity-z-applied", null);
+            }
+        }
+
+        // --- outbound keep-alive ---
+        if (event.getPacketType() == PacketType.Play.Server.KEEP_ALIVE) {
+            WrapperPlayServerKeepAlive ka = new WrapperPlayServerKeepAlive(event);
+            profile.setAttribute("keepalive-sent-id", ka.getId());
+            profile.setAttribute("keepalive-sent-nanos", System.nanoTime());
+        }
     }
 }

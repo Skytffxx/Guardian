@@ -4,6 +4,7 @@ import com.skyzzz.guardian.api.check.Check;
 import com.skyzzz.guardian.api.check.CheckCategory;
 import com.skyzzz.guardian.api.check.CheckRegistry;
 import com.skyzzz.guardian.api.check.CheckSettings;
+import com.skyzzz.guardian.api.data.DamageData;
 import com.skyzzz.guardian.api.data.AttackData;
 import com.skyzzz.guardian.api.data.BlockBreakData;
 import com.skyzzz.guardian.api.data.BlockPlaceData;
@@ -23,18 +24,13 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
-/**
- * Holds every check. Dispatch is a plain loop over a pre-sorted list per category,
- * with a fast bail-out when a category has no enabled checks.
- */
 public final class CheckRegistryImpl implements CheckRegistry {
 
     private final GuardianPlugin plugin;
     private final GuardianConfig config;
 
     private final Map<String, Check> byName = new ConcurrentHashMap<>();
-    private final Map<CheckCategory, List<Check>> byCategory =
-            new ConcurrentHashMap<>();
+    private final Map<CheckCategory, List<Check>> byCategory = new ConcurrentHashMap<>();
 
     public CheckRegistryImpl(GuardianPlugin plugin, GuardianConfig config) {
         this.plugin = plugin;
@@ -104,35 +100,13 @@ public final class CheckRegistryImpl implements CheckRegistry {
         }
     }
 
-    // ---- dispatch --------------------------------------------------------
-
     @Override
     public void dispatchPacketReceive(PlayerProfile profile, PacketData data) {
-        for (Check check : byCategory.get(CheckCategory.PACKET)) {
-            if (check.isEnabled()) {
-                safe(() -> check.onPacketReceive(profile, data), check);
-            }
-        }
-        for (Check check : byCategory.get(CheckCategory.COMBAT)) {
-            if (check.isEnabled()) {
-                safe(() -> check.onPacketReceive(profile, data), check);
-            }
-        }
-        for (Check check : byCategory.get(CheckCategory.MOVEMENT)) {
-            if (check.isEnabled()) {
-                safe(() -> check.onPacketReceive(profile, data), check);
-            }
-        }
-        for (Check check : byCategory.get(CheckCategory.PLAYER)) {
-            if (check.isEnabled()) {
-                safe(() -> check.onPacketReceive(profile, data), check);
-            }
-        }
-        for (Check check : byCategory.get(CheckCategory.WORLD)) {
-            if (check.isEnabled()) {
-                safe(() -> check.onPacketReceive(profile, data), check);
-            }
-        }
+        dispatchCategory(CheckCategory.PACKET, c -> c.onPacketReceive(profile, data));
+        dispatchCategory(CheckCategory.COMBAT, c -> c.onPacketReceive(profile, data));
+        dispatchCategory(CheckCategory.MOVEMENT, c -> c.onPacketReceive(profile, data));
+        dispatchCategory(CheckCategory.PLAYER, c -> c.onPacketReceive(profile, data));
+        dispatchCategory(CheckCategory.WORLD, c -> c.onPacketReceive(profile, data));
     }
 
     @Override
@@ -148,43 +122,23 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     @Override
     public void dispatchMove(PlayerProfile profile, MoveData data) {
-        for (Check check : byCategory.get(CheckCategory.MOVEMENT)) {
-            if (check.isEnabled()) {
-                safe(() -> check.onMove(profile, data), check);
-            }
-        }
-        for (Check check : byCategory.get(CheckCategory.COMBAT)) {
-            if (check.isEnabled()) {
-                safe(() -> check.onMove(profile, data), check);
-            }
-        }
+        dispatchCategory(CheckCategory.MOVEMENT, c -> c.onMove(profile, data));
+        dispatchCategory(CheckCategory.COMBAT, c -> c.onMove(profile, data));
     }
 
     @Override
     public void dispatchAttack(PlayerProfile profile, AttackData data) {
-        for (Check check : byCategory.get(CheckCategory.COMBAT)) {
-            if (check.isEnabled()) {
-                safe(() -> check.onAttack(profile, data), check);
-            }
-        }
+        dispatchCategory(CheckCategory.COMBAT, c -> c.onAttack(profile, data));
     }
 
     @Override
     public void dispatchBlockPlace(PlayerProfile profile, BlockPlaceData data) {
-        for (Check check : byCategory.get(CheckCategory.WORLD)) {
-            if (check.isEnabled()) {
-                safe(() -> check.onBlockPlace(profile, data), check);
-            }
-        }
+        dispatchCategory(CheckCategory.WORLD, c -> c.onBlockPlace(profile, data));
     }
 
     @Override
     public void dispatchBlockBreak(PlayerProfile profile, BlockBreakData data) {
-        for (Check check : byCategory.get(CheckCategory.WORLD)) {
-            if (check.isEnabled()) {
-                safe(() -> check.onBlockBreak(profile, data), check);
-            }
-        }
+        dispatchCategory(CheckCategory.WORLD, c -> c.onBlockBreak(profile, data));
     }
 
     @Override
@@ -218,10 +172,14 @@ public final class CheckRegistryImpl implements CheckRegistry {
         }
     }
 
-    /**
-     * A throwing check must never take down packet handling for everyone.
-     * We log once per check per session and disable it.
-     */
+    private void dispatchCategory(CheckCategory category, java.util.function.Consumer<Check> action) {
+        for (Check check : byCategory.get(category)) {
+            if (check.isEnabled()) {
+                safe(() -> action.accept(check), check);
+            }
+        }
+    }
+
     private void safe(Runnable action, Check check) {
         try {
             action.run();
@@ -230,5 +188,10 @@ public final class CheckRegistryImpl implements CheckRegistry {
                     "Check '" + check.name() + "' threw and has been disabled", throwable);
             check.setEnabled(false);
         }
+    }
+
+    @Override
+    public void dispatchDamage(PlayerProfile profile, DamageData data) {
+        dispatchCategory(CheckCategory.COMBAT, c -> c.onDamage(profile, data));
     }
 }

@@ -9,6 +9,7 @@
 /workspaces/Guardian/guardian-api/src/main/java/com/skyzzz/guardian/api/data/AttackData.java
 /workspaces/Guardian/guardian-api/src/main/java/com/skyzzz/guardian/api/data/BlockBreakData.java
 /workspaces/Guardian/guardian-api/src/main/java/com/skyzzz/guardian/api/data/BlockPlaceData.java
+/workspaces/Guardian/guardian-api/src/main/java/com/skyzzz/guardian/api/data/DamageData.java
 /workspaces/Guardian/guardian-api/src/main/java/com/skyzzz/guardian/api/data/MoveData.java
 /workspaces/Guardian/guardian-api/src/main/java/com/skyzzz/guardian/api/data/PacketData.java
 /workspaces/Guardian/guardian-api/src/main/java/com/skyzzz/guardian/api/event/GuardianFlagEvent.java

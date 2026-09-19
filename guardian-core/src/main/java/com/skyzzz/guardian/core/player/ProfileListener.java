@@ -7,6 +7,11 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
+import com.skyzzz.guardian.api.data.DamageData;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -21,6 +26,11 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.event.player.PlayerItemHeldEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.Material;
 
 import java.util.UUID;
 
@@ -51,6 +61,46 @@ public final class ProfileListener implements Listener {
     // ---- lifecycle -------------------------------------------------------
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onItemHeld(PlayerItemHeldEvent event) {
+        GuardianProfile profile = (GuardianProfile) profiles.get(event.getPlayer().getUniqueId());
+        if (profile != null) {
+            profile.setAttribute("last-item-switch-tick", profile.tick());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onInteract(PlayerInteractEvent event) {
+        if (event.getAction() != Action.RIGHT_CLICK_AIR
+                && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        ItemStack hand = event.getItem();
+        if (hand == null || hand.getType() != Material.FIREWORK_ROCKET) {
+            return;
+        }
+        GuardianProfile profile = (GuardianProfile) profiles.get(event.getPlayer().getUniqueId());
+        if (profile != null) {
+            profile.setAttribute("firework-boost-tick", profile.tick());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onToggleSneak(PlayerToggleSneakEvent event) {
+        GuardianProfile profile = (GuardianProfile) profiles.get(event.getPlayer().getUniqueId());
+        if (profile != null) {
+            profile.setAttribute("client-sneaking", event.isSneaking() ? Boolean.TRUE : null);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onToggleSprint(org.bukkit.event.player.PlayerToggleSprintEvent event) {
+        GuardianProfile profile = (GuardianProfile) profiles.get(event.getPlayer().getUniqueId());
+        if (profile != null) {
+            profile.setAttribute("server-sprinting", event.isSprinting() ? Boolean.TRUE : null);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         GuardianProfile profile = profiles.getOrCreate(player);
@@ -77,6 +127,68 @@ public final class ProfileListener implements Listener {
             profile.reset();
         }
         profiles.remove(player.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player attacker)) {
+              return;
+        }
+        Entity victim = event.getEntity();
+        if (victim == attacker) {
+            return;
+        }
+
+        GuardianProfile profile = (GuardianProfile) profiles.get(attacker.getUniqueId());
+        if (profile == null) {
+            return;
+        }
+
+        boolean critical = detectCritical(attacker, victim, event.getDamage());
+
+        DamageData data = new DamageData(
+                   victim.getType().name(),
+                   event.getFinalDamage(),
+                   !attacker.isOnGround(),
+                   attacker.getFallDistance(),
+                   attacker.isClimbing(),
+                   attacker.isInWater(),
+                   attacker.hasPotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS),
+                   attacker.isInsideVehicle(),
+                   attacker.isSprinting(),
+                   critical,
+                   System.nanoTime());
+
+           plugin.checkRegistry().dispatchDamage(profile, data);
+    }
+
+    /**
+     * Vanilla crit detection. True when the server applied the 1.5x multiplier.
+     *
+     * The check is: damage is a multiple of 1.5 of base. We approximate base as the
+     * weapon's attack damage attribute. If the ratio is within tolerance of 1.5, the
+     * hit was a crit.
+     */
+    private boolean detectCritical(Player attacker, Entity victim, double damage) {
+        // No crit possible if server already knows these conditions failed.
+        if (attacker.isOnGround()
+                || attacker.isClimbing()
+                || attacker.isInWater()
+                || attacker.hasPotionEffect(org.bukkit.potion.PotionEffectType.BLINDNESS)
+                || attacker.isInsideVehicle()) {
+            return false;
+        }
+
+        double base = attacker.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE) != null
+                ? attacker.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue()
+                : 1.0D;
+
+        if (base <= 0.0D) {
+            return false;
+        }
+
+        double ratio = damage / base;
+     return Math.abs(ratio - 1.5D) < 0.15D;
     }
 
     // ---- gamemode / state toggles ---------------------------------------
@@ -181,8 +293,46 @@ public final class ProfileListener implements Listener {
         profile.setAttribute("fall-distance", player.getFallDistance());
         profile.setAttribute("server-on-ground", player.isOnGround());
         profile.setAttribute("vehicle", player.isInsideVehicle() ? Boolean.TRUE : null);
-    }
 
+        // --- additional feeds for vehicle / phase / regen / fastbreak ---
+        org.bukkit.entity.Entity vehicle = player.getVehicle();
+        if (vehicle != null) {
+            profile.setAttribute("vehicle", Boolean.TRUE);
+            profile.setAttribute("vehicle-x", vehicle.getLocation().getX());
+            profile.setAttribute("vehicle-y", vehicle.getLocation().getY());
+            profile.setAttribute("vehicle-z", vehicle.getLocation().getZ());
+        } else {
+            profile.setAttribute("vehicle", null);
+            profile.setAttribute("vehicle-x", null);
+            profile.setAttribute("vehicle-y", null);
+            profile.setAttribute("vehicle-z", null);
+        }
+
+        profile.setAttribute("health", player.getHealth());
+        profile.setAttribute("server-sneaking", player.isSneaking() ? Boolean.TRUE : null);
+        profile.setAttribute("server-sprinting", player.isSprinting() ? Boolean.TRUE : null);
+
+        // phase detection — is the player's bounding volume intersecting solids?
+        org.bukkit.Location loc = player.getLocation();
+        boolean feetInSolid = !loc.getBlock().isPassable()
+                && loc.getBlock().getType().isSolid();
+        boolean headInSolid = !loc.clone().add(0, 1.4D, 0).getBlock().isPassable()
+                && loc.clone().add(0, 1.4D, 0).getBlock().getType().isSolid();
+        profile.setAttribute("feet-in-solid", feetInSolid ? Boolean.TRUE : null);
+        profile.setAttribute("head-in-solid", headInSolid ? Boolean.TRUE : null);
+
+        // fastbreak — record the block being broken and when
+        org.bukkit.block.Block belowFeet = loc.getBlock().getRelative(0, -1, 0);
+        profile.setAttribute("block-below-type", belowFeet.getType().name());
+        profile.setAttribute("block-below-hardness", belowFeet.getType().getHardness());
+        profile.setAttribute("block-at-feet-type", loc.getBlock().getType().name());
+        profile.setAttribute("block-at-feet-hardness", loc.getBlock().getType().getHardness());
+
+        org.bukkit.inventory.ItemStack tool = player.getInventory().getItemInMainHand();
+        int digSpeedLevel = tool.getEnchantmentLevel(org.bukkit.enchantments.Enchantment.EFFICIENCY);
+        profile.setAttribute("tool-efficiency", digSpeedLevel);
+        profile.setAttribute("tool-type", tool.getType().name());
+    }
     // ---- attribute feeds -------------------------------------------------
 
     private void updateBlockAttributes(GuardianProfile profile, Player player) {

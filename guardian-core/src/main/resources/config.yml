@@ -29,60 +29,44 @@
 #  Performance
 # -----------------------------------------------------------------------------
 performance:
-  # 200+ concurrent players must show no measurable TPS impact.
-  # If you raise these, watch the profile: sub-millisecond main-thread cost per
-  # player per tick is the budget.
-  position-history-size: 40       # ticks of position history kept per player
-  click-history-size: 40          # clicks kept for autoclicker statistics
-  async-thread-pool-size: 2       # packet parsing / math-heavy checks
-  max-dispatch-nanos-per-tick: 1000000   # 1ms soft budget; logged when exceeded
+  position-history-size: 40
+  click-history-size: 40
+  async-thread-pool-size: 2
+  max-dispatch-nanos-per-tick: 1000000
 
 # -----------------------------------------------------------------------------
 #  Violations
 # -----------------------------------------------------------------------------
 violations:
-  # VL decays every second by this amount. This is the single strongest lever
-  # against false positives: a lag spike raises VL, then it bleeds away.
   decay-per-second: 0.35
-  # VL is capped per check at this value.
   ceiling: 1000.0
-  # Awarded when a check observes demonstrably clean behaviour.
   clean-play-reward-multiplier: 1.0
-  # Reset all VL when a player disconnects (false: persist in-session only).
   reset-on-quit: true
 
 # -----------------------------------------------------------------------------
 #  False-positive minimisation
 # -----------------------------------------------------------------------------
 false-positives:
-  # Bedrock thresholds are MULTIPLIED by this, never exempted. Full exemption
-  # just becomes a labelled bypass.
   bedrock-threshold-multiplier: 1.35
-  # Timing thresholds scale with TPS so a lag spike never reads as a cheat.
   tps-compensation:
     enabled: true
     reference-tps: 20.0
     maximum-factor: 2.0
-  # Reach/interaction distance scales with ping.
   ping-compensation:
     enabled: true
     blocks-per-ms: 0.0022
     maximum-blocks: 0.35
-  # Exemptions. Creative and spectator are ALWAYS exempt from combat and
-  # movement checks regardless of what is listed here.
   exemptions:
     gamemodes:
       - CREATIVE
       - SPECTATOR
-    worlds: []                   # e.g. [ "creative_plots", "lobby" ]
+    worlds: []
     permissions:
       - guardian.exempt
-    regions: []                  # WorldGuard region ids, requires WG present
+    regions: []
 
 # -----------------------------------------------------------------------------
 #  Punishments
-#  Commands fire from console, so any command-based punishment plugin works:
-#  LiteBans, AdvancedBan, vanilla, a custom script — Guardian does not care.
 # -----------------------------------------------------------------------------
 punishments:
   global:
@@ -118,6 +102,19 @@ punishments:
           cooldown-seconds: 180
           commands:
             - "tempban {player} 3d Reach ({check} VL {vl})"
+    # The 12 new checks are alerts-only for their first week.
+    velocity:      { tiers: [] }
+    fakecriticals: { tiers: [] }
+    jesus:         { tiers: [] }
+    phase:         { tiers: [] }
+    sneak:         { tiers: [] }
+    elytra:        { tiers: [] }
+    vehicle:       { tiers: [] }
+    fastbreak:     { tiers: [] }
+    autotool:      { tiers: [] }
+    regen:         { tiers: [] }
+    inventory:     { tiers: [] }
+    pingspoof:     { tiers: [] }
     # xray intentionally has NO punishment tiers. It is review-only.
     xray:
       tiers: []
@@ -126,7 +123,7 @@ punishments:
 #  Alerts
 # -----------------------------------------------------------------------------
 alerts:
-  throttle-ms: 1500              # minimum gap between alerts for the same check
+  throttle-ms: 1500
 
 discord:
   enabled: false
@@ -136,10 +133,9 @@ discord:
 
 # -----------------------------------------------------------------------------
 #  Storage
-#  Storage is OPTIONAL. Guardian runs fine on the in-memory store.
 # -----------------------------------------------------------------------------
 storage:
-  type: MEMORY                   # MEMORY | SQLITE | MYSQL | MARIADB
+  type: MEMORY
   pool-size: 4
   sqlite:
     file: violations.db
@@ -152,8 +148,6 @@ storage:
 
 # -----------------------------------------------------------------------------
 #  Checks
-#  Every check is independently toggleable. Disabling one never touches another.
-#  vl-weight scales how much a single flag from that check moves the VL.
 # -----------------------------------------------------------------------------
 checks:
 
@@ -164,20 +158,20 @@ checks:
     killaura:
       enabled: true
       vl-weight: 1.0
-      multi-target-streak: 2      # same-tick attacks on different entities
+      multi-target-streak: 2
       no-swing-streak: 4
       through-wall-streak: 3
 
     reach:
       enabled: true
       vl-weight: 1.0
-      max-reach: 3.0              # vanilla survival reach
+      max-reach: 3.0
       buffer: 0.08
       ping-compensation-per-ms: 0.0022
       ping-compensation-cap: 0.35
       minimum-excess: 0.03
       window-size: 12
-      required-flags: 5           # rolling-window corroboration
+      required-flags: 5
       weight-per-block: 0.25
       max-weight: 3.0
       clean-reward: 0.15
@@ -185,7 +179,6 @@ checks:
     autoclicker:
       enabled: true
       vl-weight: 1.0
-      # Raw CPS is deliberately NOT the trigger. Consistency is.
       minimum-cps: 8.0
       min-samples: 25
       min-coefficient-of-variation: 0.075
@@ -204,12 +197,22 @@ checks:
       clean-reward: 0.20
 
     velocity:
-      enabled: false              # inert until the velocity feed lands
+      enabled: true
       vl-weight: 1.0
+      minimum-expected-motion: 0.15
+      sample-window: 6
+      minimum-ratio: 0.55
+      clean-reward: 0.2
 
     fakecriticals:
-      enabled: false              # inert until AttackData carries crit claims
+      enabled: true
       vl-weight: 1.0
+      trajectory-window-ticks: 10
+      window-decay: 0.75
+      minimum-reconstructed-fall: 0.08
+      maximum-fall-inflation: 3.0
+      minimum-claimed-fall: 0.3
+      clean-reward: 0.2
 
   # ---------------------------------------------------------------------------
   #  MOVEMENT
@@ -256,12 +259,16 @@ checks:
       required-flags: 3
 
     jesus:
-      enabled: false              # needs block-material feed from core
+      enabled: true
       vl-weight: 1.0
+      max-hover-delta-y: 0.02
+      minimum-horizontal: 0.05
+      required-flags: 10
 
     phase:
-      enabled: false              # needs AABB sweep
+      enabled: true
       vl-weight: 1.0
+      required-flags: 3
 
     step:
       enabled: true
@@ -274,8 +281,10 @@ checks:
       required-flags: 2
 
     sneak:
-      enabled: false
+      enabled: true
       vl-weight: 1.0
+      max-sneak-speed: 0.07
+      required-flags: 8
 
     timer:
       enabled: true
@@ -286,12 +295,19 @@ checks:
       ignore-above-ms: 250.0
 
     elytra:
-      enabled: false              # needs glide + firework metadata feed
+      enabled: true
       vl-weight: 1.0
+      minimum-boost-gap-ticks: 8
+      illegal-boost-streak: 2
+      rapid-boost-streak: 3
 
     vehicle:
-      enabled: false              # needs ridden-entity position feed
+      enabled: true
       vl-weight: 1.0
+      max-vehicle-speed: 0.9
+      max-vehicle-rise: 0.05
+      speed-streak: 5
+      air-streak: 8
 
   # ---------------------------------------------------------------------------
   #  WORLD INTERACTION
@@ -303,7 +319,7 @@ checks:
       line-of-sight-minimum-distance: 1.0
       rotation-miss-streak: 4
       below-feet-threshold: 1.2
-      tower-minimum-pitch: 55.0   # scaled by the Bedrock multiplier
+      tower-minimum-pitch: 55.0
       tower-miss-streak: 4
       minimum-interval-ms: 85.0
       rapid-place-streak: 8
@@ -316,8 +332,13 @@ checks:
       required-flags: 5
 
     fastbreak:
-      enabled: false              # needs server-side hardness calculation
+      enabled: true
       vl-weight: 1.0
+      # Raised from 0.60 to 0.75 for the first week. The formula is the real
+      # vanilla one but does not cover every modified-block edge case. Watch
+      # alerts and lower if it never fires, raise if it false-positives.
+      minimum-time-ratio: 0.75
+      required-flags: 5
 
     nuker:
       enabled: true
@@ -327,8 +348,10 @@ checks:
       max-mean-breaks-per-tick: 0.85
 
     autotool:
-      enabled: false              # needs held-item switch timestamps
+      enabled: true
       vl-weight: 1.0
+      reaction-window-ticks: 2
+      required-flags: 6
 
     blockreach:
       enabled: true
@@ -343,9 +366,6 @@ checks:
     xray:
       enabled: true
       vl-weight: 1.0
-      # REVIEW-ONLY. This check never auto-punishes; the punishment tier for it
-      # is intentionally empty above. The signal is inherently probabilistic —
-      # caving, branch mining and plain luck all look similar.
       review-only: true
       window-seconds: 600.0
       minimum-breaks: 60
@@ -368,12 +388,18 @@ checks:
       minimum-reaction-ms: 150.0
 
     regen:
-      enabled: false              # needs health history feed
+      enabled: true
       vl-weight: 1.0
+      window-size: 8
+      minimum-heal-interval-ticks: 20
 
     inventory:
-      enabled: false              # needs window/slot tracking
+      enabled: true
       vl-weight: 1.0
+      window-seconds: 5
+      ignore-above-ms: 500
+      maximum-cps: 25
+      same-slot-streak: 8
 
   # ---------------------------------------------------------------------------
   #  PACKET / PROTOCOL
@@ -408,5 +434,8 @@ checks:
         - "astolfo"
 
     pingspoof:
-      enabled: false              # needs keep-alive id tracking
+      enabled: true
       vl-weight: 1.0
+      window-size: 10
+      wrong-id-streak: 3
+      ping-mismatch-factor: 3.0

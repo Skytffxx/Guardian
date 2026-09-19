@@ -6,6 +6,7 @@ com/skyzzz/guardian/api/util/RollingWindow.class
 com/skyzzz/guardian/api/GuardianAPI$Guardian.class
 com/skyzzz/guardian/api/check/CheckCategory.class
 com/skyzzz/guardian/api/check/CheckSettings.class
+com/skyzzz/guardian/api/data/DamageData.class
 com/skyzzz/guardian/api/data/MoveData.class
 com/skyzzz/guardian/api/event/GuardianPunishEvent.class
 com/skyzzz/guardian/api/player/ClickHistory.class
