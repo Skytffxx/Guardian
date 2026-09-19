@@ -243,6 +243,11 @@ public final class GuardianPlugin extends JavaPlugin implements GuardianAPI.Guar
         alertManager.reload();
         punishmentManager.reload();
         floodgateHook.reload();
+        // Platform flags are resolved at join; refresh online players so a reload
+        // picks up Floodgate/Geyser installs without requiring rejoin.
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            profileManager.refreshPlatform(online);
+        }
         Banner.ready("Reload complete");
         Banner.blank();
     }
@@ -285,5 +290,9 @@ public final class GuardianPlugin extends JavaPlugin implements GuardianAPI.Guar
 
     public Schedulers schedulers() {
         return schedulers;
+    }
+
+    public FloodgateHook floodgateHook() {
+        return floodgateHook;
     }
 }

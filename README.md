@@ -289,7 +289,7 @@ mvn clean package -fae
 **One jar** goes to the server:
 
 ```
-guardian-core/target/Guardian-1.0.0-SNAPSHOT.jar
+guardian-core/target/Guardian-1.0.1.jar
 ```
 
 Do **not** upload `guardian-api-*.jar` or `guardian-checks-*.jar` — they are already inside the Guardian jar. Do **not** upload `original-Guardian-*.jar` either; that is the pre-shade artifact.
@@ -298,7 +298,7 @@ Server `plugins/` directory should contain:
 
 ```
 plugins/
-├── Guardian-1.0.0-SNAPSHOT.jar
+├── Guardian-1.0.1.jar
 ├── packetevents-spigot-X.Y.Z.jar
 └── Vault (1.7).jar    (optional)
 ```
@@ -309,14 +309,14 @@ Guardian **hard-depends** on PacketEvents. Without it, Guardian will not load.
 
 ```bash
 # Plugin class must be present
-unzip -l guardian-core/target/Guardian-1.0.0-SNAPSHOT.jar | grep GuardianPlugin
+unzip -l guardian-core/target/Guardian-1.0.1.jar | grep GuardianPlugin
 
 # All three packages must be merged
-unzip -l guardian-core/target/Guardian-1.0.0-SNAPSHOT.jar | grep -c "com/skyzzz/guardian/"
+unzip -l guardian-core/target/Guardian-1.0.1.jar | grep -c "com/skyzzz/guardian/"
 # Expected: a few hundred
 
 # plugin.yml must be populated
-unzip -p guardian-core/target/Guardian-1.0.0-SNAPSHOT.jar plugin.yml | head -5
+unzip -p guardian-core/target/Guardian-1.0.1.jar plugin.yml | head -5
 ```
 
 ### Cache clearing
@@ -332,7 +332,7 @@ Then restart.
 ### Expected startup output
 
 ```
-[Guardian] Enabling Guardian v1.0.0-SNAPSHOT
+[Guardian] Enabling Guardian v1.0.1
 [Guardian] Guardian enabled — 31 checks registered, storage=MemoryViolationStore
 ```
 
@@ -642,4 +642,4 @@ Keep debug strings informative — they are the primary tool staff use to judge 
 
 ---
 
-**Guardian 1.0.0-SNAPSHOT** — skyzzz
+**Guardian 1.0.1** — skyzzz

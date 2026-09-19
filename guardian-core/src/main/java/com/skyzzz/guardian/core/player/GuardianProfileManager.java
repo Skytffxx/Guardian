@@ -61,6 +61,19 @@ public final class GuardianProfileManager implements ProfileManager {
         profiles.remove(uuid);
     }
 
+    /** Re-resolves platform (and Bedrock scale) for an online player, e.g. on plugin reload. */
+    public void refreshPlatform(Player player) {
+        GuardianProfile profile = profiles.get(player.getUniqueId());
+        if (profile == null) {
+            return;
+        }
+        boolean bedrock = floodgate.isBedrockPlayer(player.getUniqueId());
+        profile.setPlatform(bedrock ? Platform.BEDROCK : Platform.JAVA);
+        profile.setThresholdScale(bedrock
+                ? config.getDouble("false-positives.bedrock-threshold-multiplier", 1.35D)
+                : 1.0D);
+    }
+
     @Override
     public void tickAll() {
         // Retained for API completeness; core's repeating task drives ticks so that

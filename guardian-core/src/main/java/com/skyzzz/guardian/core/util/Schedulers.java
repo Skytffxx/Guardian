@@ -74,6 +74,23 @@ public final class Schedulers {
         }
     }
 
+    /** One-shot delayed task on the region/main thread (Folia-safe). */
+    public void runSyncDelayed(Runnable task, long delayTicks) {
+        if (!folia) {
+            Bukkit.getScheduler().runTaskLater(plugin, task, Math.max(0L, delayTicks));
+            return;
+        }
+        try {
+            Class<?> global = Class.forName("io.papermc.paper.threadedregions.scheduler.GlobalRegionScheduler");
+            Object globalInstance = Bukkit.class.getMethod("getGlobalRegionScheduler").invoke(null);
+            global.getMethod("runDelayed", Plugin.class, Consumer.class, long.class)
+                    .invoke(globalInstance, plugin, (Consumer<Object>) ignored -> task.run(),
+                            Math.max(1L, delayTicks));
+        } catch (Throwable throwable) {
+            task.run();
+        }
+    }
+
     public void runAsyncRepeating(Runnable task, long delayTicks, long periodTicks) {
         if (!folia) {
             Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delayTicks, periodTicks);

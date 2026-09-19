@@ -24,7 +24,7 @@ public final class ClientBrandCheck extends AbstractCheck {
 
     @Override
     public void onPacketReceive(PlayerProfile profile, PacketData packet) {
-        if (!packet.packetName().contains("ClientSettings")) {
+        if (!packet.matchesName("ClientSettings")) {
             return;
         }
         Object brandAttr = profile.attribute("client-brand");

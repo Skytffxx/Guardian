@@ -59,9 +59,13 @@ public final class VelocityCheck extends AbstractCheck {
             return;
         }
 
+        // Velocity knockback is weaker on Bedrock (input latency) — scale the
+        // expectation so touch players are not flagged for absorbing hits.
+        double knockbackScale = profile.isBedrock()
+                ? d("bedrock-knockback-scale", 0.8D) : 1.0D;
         // Expected motion in blocks/tick is velocity * 0.5 (Minecraft converts).
         double expectedHorizontal = Math.sqrt(state.expectedX * state.expectedX
-                + state.expectedZ * state.expectedZ) * 0.5D;
+                + state.expectedZ * state.expectedZ) * 0.5D * knockbackScale;
         if (expectedHorizontal < d("minimum-expected-motion", 0.15D)) {
             return;
         }

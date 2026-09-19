@@ -26,7 +26,10 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 
 import java.util.UUID;
@@ -72,13 +75,126 @@ public final class ProfileListener implements Listener {
             return;
         }
         ItemStack hand = event.getItem();
-        if (hand == null || hand.getType() != Material.FIREWORK_ROCKET) {
+        if (hand == null) {
             return;
         }
         GuardianProfile profile = (GuardianProfile) profiles.get(event.getPlayer().getUniqueId());
-        if (profile != null) {
+        if (profile == null) {
+            return;
+        }
+        if (hand.getType() == Material.FIREWORK_ROCKET) {
             profile.setAttribute("firework-boost-tick", profile.tick());
         }
+        // Consumable tracking for FastUseCheck: start timestamp here, duration
+        // resolved in onItemConsume.
+        if (hand.getType().isEdible() || hand.getType().name().endsWith("_POTION")
+                || hand.getType() == Material.MILK_BUCKET
+                || hand.getType() == Material.HONEY_BOTTLE) {
+            profile.setAttribute("use-start-nanos", System.nanoTime());
+        }
+    }
+
+    // ---- world interaction feeds (scaffold/fastplace/fastbreak/nuker/...) -----
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockPlace(BlockPlaceEvent event) {
+        GuardianProfile profile = (GuardianProfile) profiles.get(event.getPlayer().getUniqueId());
+        if (profile == null) {
+            return;
+        }
+        org.bukkit.Location eye = event.getPlayer().getEyeLocation();
+        org.bukkit.block.Block block = event.getBlockPlaced();
+        double dx = block.getX() + 0.5D - eye.getX();
+        double dy = block.getY() + 0.5D - eye.getY();
+        double dz = block.getZ() + 0.5D - eye.getZ();
+        double eyeDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        boolean lineOfSight;
+        try {
+            lineOfSight = event.getPlayer().hasLineOfSight(
+                    block.getLocation().add(0.5D, 0.5D, 0.5D));
+        } catch (Throwable ignored) {
+            lineOfSight = eyeDistance <= 6.0D;
+        }
+        com.skyzzz.guardian.api.data.BlockPlaceData data =
+                new com.skyzzz.guardian.api.data.BlockPlaceData(
+                        block.getX(), block.getY(), block.getZ(), block.getType().name(),
+                        eye.getX(), eye.getY(), eye.getZ(), eye.getYaw(), eye.getPitch(),
+                        faceId(event.getBlockAgainst(), block),
+                        eyeDistance, lineOfSight, System.nanoTime());
+        plugin.checkRegistry().dispatchBlockPlace(profile, data);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockBreak(BlockBreakEvent event) {
+        GuardianProfile profile = (GuardianProfile) profiles.get(event.getPlayer().getUniqueId());
+        if (profile == null) {
+            return;
+        }
+        org.bukkit.block.Block block = event.getBlock();
+        org.bukkit.Location eye = event.getPlayer().getEyeLocation();
+        double dx = block.getX() + 0.5D - eye.getX();
+        double dy = block.getY() + 0.5D - eye.getY();
+        double dz = block.getZ() + 0.5D - eye.getZ();
+        double eyeDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        boolean lineOfSight;
+        try {
+            lineOfSight = event.getPlayer().hasLineOfSight(
+                    block.getLocation().add(0.5D, 0.5D, 0.5D));
+        } catch (Throwable ignored) {
+            lineOfSight = eyeDistance <= 6.0D;
+        }
+        boolean instantBreak = isInstantBreak(block.getType());
+        profile.setAttribute("last-break-eye-distance", eyeDistance);
+        profile.setAttribute("last-break-line-of-sight",
+                lineOfSight ? Boolean.TRUE : Boolean.FALSE);
+        com.skyzzz.guardian.api.data.BlockBreakData data =
+                new com.skyzzz.guardian.api.data.BlockBreakData(
+                        block.getX(), block.getY(), block.getZ(),
+                        block.getType().name(), instantBreak, System.nanoTime());
+        plugin.checkRegistry().dispatchBlockBreak(profile, data);
+    }
+
+    private static int faceId(org.bukkit.block.Block against, org.bukkit.block.Block placed) {
+        if (against == null || placed == null) {
+            return -1;
+        }
+        int dx = placed.getX() - against.getX();
+        int dy = placed.getY() - against.getY();
+        int dz = placed.getZ() - against.getZ();
+        if (dx == 1) {
+            return 0;
+        }
+        if (dx == -1) {
+            return 1;
+        }
+        if (dy == 1) {
+            return 2;
+        }
+        if (dy == -1) {
+            return 3;
+        }
+        if (dz == 1) {
+            return 4;
+        }
+        if (dz == -1) {
+            return 5;
+        }
+        return -1;
+    }
+
+    private static boolean isInstantBreak(Material material) {
+        if (material.getHardness() == 0.0F) {
+            return true;
+        }
+        return switch (material.name()) {
+            case "SHORT_GRASS", "TALL_GRASS", "FERN", "TORCH", "SNOW",
+                    "VINE", "LILY_PAD", "SCAFFOLDING", "SEAGRASS", "COBWEB",
+                    "RAIL", "LEVER", "REDSTONE_WIRE" -> true;
+            default -> material.name().endsWith("_BUTTON")
+                    || material.name().endsWith("_PRESSURE_PLATE")
+                    || material.name().endsWith("_CARPET")
+                    || material.name().endsWith("_SAPLING");
+        };
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -124,6 +240,7 @@ public final class ProfileListener implements Listener {
             profile.reset();
         }
         profiles.remove(player.getUniqueId());
+        plugin.floodgateHook().invalidate(player.getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -216,6 +333,29 @@ public final class ProfileListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onItemConsume(PlayerItemConsumeEvent event) {
+        GuardianProfile profile = (GuardianProfile) profiles.get(event.getPlayer().getUniqueId());
+        if (profile == null) {
+            return;
+        }
+        Object startAttr = profile.attribute("use-start-nanos");
+        if (startAttr instanceof Long startNanos) {
+            long durationMs = (System.nanoTime() - startNanos) / 1_000_000L;
+            if (durationMs >= 0L && durationMs < 30_000L) {
+                profile.setAttribute("last-use-duration-ms", (double) durationMs);
+                // Synthetic packet name in PacketEvents UPPER_SNAKE style so the
+                // format-tolerant matcher in FastUseCheck picks it up on any version.
+                plugin.checkRegistry().dispatchPacketReceive(profile,
+                        new com.skyzzz.guardian.api.data.PacketData(
+                                event.getItem(), Object.class, "USE_ITEM",
+                                com.skyzzz.guardian.api.PacketDirection.INBOUND,
+                                System.nanoTime()));
+            }
+        }
+        profile.setAttribute("use-start-nanos", null);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
         GuardianProfile profile = (GuardianProfile) profiles.get(event.getPlayer().getUniqueId());
         if (profile == null) {
@@ -223,17 +363,13 @@ public final class ProfileListener implements Listener {
         }
         profile.setAttribute("teleport", Boolean.TRUE);
 
-        // Schedule the flag to clear after the grace window. Uses the plugin's
-        // Folia-aware scheduler so this works on region-threaded servers too.
-        long clearAtTick = profile.tick() + TELEPORT_GRACE_TICKS;
-        plugin.schedulers().runSyncRepeating(new Runnable() {
-            @Override
-            public void run() {
-                if (profile.tick() >= clearAtTick) {
-                    profile.setAttribute("teleport", null);
-                }
+        // One-shot delayed clear: no repeating-task leak, Folia-safe.
+        plugin.schedulers().runSyncDelayed(() -> {
+            Object stillTeleport = profile.attribute("teleport");
+            if (Boolean.TRUE.equals(stillTeleport)) {
+                profile.setAttribute("teleport", null);
             }
-        }, TELEPORT_GRACE_TICKS, TELEPORT_GRACE_TICKS);
+        }, TELEPORT_GRACE_TICKS);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -260,6 +396,11 @@ public final class ProfileListener implements Listener {
 
     // ---- per-move state --------------------------------------------------
 
+    // Throttle: full attribute scans run at most this often per player.
+    // PlayerMoveEvent fires several times per tick; the checks only need freshness
+    // at the server tick rate.
+    private static final long ATTRIBUTE_SCAN_INTERVAL_NANOS = 25_000_000L;
+
     /**
      * The highest-frequency handler in the plugin. Paper fires this multiple times
      * per tick, so we keep it cheap: only block-material lookups and potion reads
@@ -279,13 +420,18 @@ public final class ProfileListener implements Listener {
 
         Player player = event.getPlayer();
 
-        // Cheap early-out: if nothing changed but rotation, most attributes are stale.
-        if (event.getFrom().getBlockX() == event.getTo().getBlockX()
-                && event.getFrom().getBlockY() == event.getTo().getBlockY()
-                && event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
-            updatePotionAttributes(profile, player);
+        // Throttle full scans: PlayerMoveEvent fires multiple times per tick.
+        long now = System.nanoTime();
+        Object lastScanAttr = profile.attribute("attribute-scan-nanos");
+        long lastScan = lastScanAttr instanceof Long value ? value : 0L;
+        boolean fullScan = now - lastScan >= ATTRIBUTE_SCAN_INTERVAL_NANOS
+                || event.getFrom().getBlockX() != event.getTo().getBlockX()
+                || event.getFrom().getBlockY() != event.getTo().getBlockY()
+                || event.getFrom().getBlockZ() != event.getTo().getBlockZ();
+        if (!fullScan) {
             return;
         }
+        profile.setAttribute("attribute-scan-nanos", now);
 
         updateBlockAttributes(profile, player);
         updatePotionAttributes(profile, player);
@@ -296,12 +442,22 @@ public final class ProfileListener implements Listener {
         profile.setAttribute("vehicle", player.isInsideVehicle() ? Boolean.TRUE : null);
 
         // --- additional feeds for vehicle / phase / regen / fastbreak ---
-        org.bukkit.entity.Entity vehicle = player.getVehicle();
-        if (vehicle != null) {
-            profile.setAttribute("vehicle", Boolean.TRUE);
-            profile.setAttribute("vehicle-x", vehicle.getLocation().getX());
-            profile.setAttribute("vehicle-y", vehicle.getLocation().getY());
-            profile.setAttribute("vehicle-z", vehicle.getLocation().getZ());
+        // Skip the vehicle Location lookup when the player is not riding: getLocation()
+        // on a vehicle entity is a world access and this handler is the hottest in the plugin.
+        if (player.isInsideVehicle()) {
+            org.bukkit.entity.Entity vehicle = player.getVehicle();
+            if (vehicle != null) {
+                org.bukkit.Location vehicleLoc = vehicle.getLocation();
+                profile.setAttribute("vehicle", Boolean.TRUE);
+                profile.setAttribute("vehicle-x", vehicleLoc.getX());
+                profile.setAttribute("vehicle-y", vehicleLoc.getY());
+                profile.setAttribute("vehicle-z", vehicleLoc.getZ());
+            } else {
+                profile.setAttribute("vehicle", null);
+                profile.setAttribute("vehicle-x", null);
+                profile.setAttribute("vehicle-y", null);
+                profile.setAttribute("vehicle-z", null);
+            }
         } else {
             profile.setAttribute("vehicle", null);
             profile.setAttribute("vehicle-x", null);
@@ -315,19 +471,21 @@ public final class ProfileListener implements Listener {
 
         // phase detection — is the player's bounding volume intersecting solids?
         org.bukkit.Location loc = player.getLocation();
-        boolean feetInSolid = !loc.getBlock().isPassable()
-                && loc.getBlock().getType().isSolid();
-        boolean headInSolid = !loc.clone().add(0, 1.4D, 0).getBlock().isPassable()
-                && loc.clone().add(0, 1.4D, 0).getBlock().getType().isSolid();
+        org.bukkit.block.Block feetBlock = loc.getBlock();
+        boolean feetInSolid = !feetBlock.isPassable()
+                && feetBlock.getType().isSolid();
+        org.bukkit.block.Block headBlock = loc.clone().add(0, 1.4D, 0).getBlock();
+        boolean headInSolid = !headBlock.isPassable()
+                && headBlock.getType().isSolid();
         profile.setAttribute("feet-in-solid", feetInSolid ? Boolean.TRUE : null);
         profile.setAttribute("head-in-solid", headInSolid ? Boolean.TRUE : null);
 
         // fastbreak — record the block being broken and when
-        org.bukkit.block.Block belowFeet = loc.getBlock().getRelative(0, -1, 0);
+        org.bukkit.block.Block belowFeet = feetBlock.getRelative(0, -1, 0);
         profile.setAttribute("block-below-type", belowFeet.getType().name());
         profile.setAttribute("block-below-hardness", belowFeet.getType().getHardness());
-        profile.setAttribute("block-at-feet-type", loc.getBlock().getType().name());
-        profile.setAttribute("block-at-feet-hardness", loc.getBlock().getType().getHardness());
+        profile.setAttribute("block-at-feet-type", feetBlock.getType().name());
+        profile.setAttribute("block-at-feet-hardness", feetBlock.getType().getHardness());
 
         org.bukkit.inventory.ItemStack tool = player.getInventory().getItemInMainHand();
         int digSpeedLevel = tool.getEnchantmentLevel(org.bukkit.enchantments.Enchantment.EFFICIENCY);
@@ -337,7 +495,8 @@ public final class ProfileListener implements Listener {
     // ---- attribute feeds -------------------------------------------------
 
     private void updateBlockAttributes(GuardianProfile profile, Player player) {
-        Block feet = player.getLocation().getBlock();
+        org.bukkit.Location location = player.getLocation();
+        Block feet = location.getBlock();
         Block below = feet.getRelative(0, -1, 0);
 
         Material feetType = feet.getType();

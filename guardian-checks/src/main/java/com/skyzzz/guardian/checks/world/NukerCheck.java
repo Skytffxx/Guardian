@@ -35,6 +35,10 @@ public final class NukerCheck extends AbstractCheck {
 
     @Override
     public void onBlockBreak(PlayerProfile profile, BlockBreakData breakData) {
+        // Instant-break blocks (grass, flowers, torches) legitimately break in one tick each.
+        if (breakData.instantBreak()) {
+            return;
+        }
         State state = states.computeIfAbsent(profile.uuid(),
                 key -> new State(i("window-size", 20)));
 

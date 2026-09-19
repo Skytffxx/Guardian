@@ -28,7 +28,7 @@ public final class AutoRespawnCheck extends AbstractCheck {
 
     @Override
     public void onPacketReceive(PlayerProfile profile, PacketData packet) {
-        if (!packet.packetName().contains("ClientStatus")) {
+        if (!packet.matchesName("ClientStatus")) {
             return;
         }
         Long deathTime = deathTimes.remove(profile.uuid());

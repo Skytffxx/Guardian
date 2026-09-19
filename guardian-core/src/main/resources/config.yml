@@ -202,6 +202,9 @@ checks:
       minimum-expected-motion: 0.15
       sample-window: 6
       minimum-ratio: 0.55
+      # Bedrock knockback reads weaker through touch input latency; scale the
+      # expected motion down for Geyser players before comparing.
+      bedrock-knockback-scale: 0.8
       clean-reward: 0.2
 
     fakecriticals:
@@ -339,6 +342,9 @@ checks:
       # alerts and lower if it never fires, raise if it false-positives.
       minimum-time-ratio: 0.75
       required-flags: 5
+      # Break pairs separated by more than this are separate mining sessions,
+      # not one fast interval (teleport, world change, long pause).
+      ignore-above-ms: 10000.0
 
     nuker:
       enabled: true
@@ -358,6 +364,9 @@ checks:
       vl-weight: 1.0
       max-reach: 4.5
       buffer: 0.10
+      window-size: 8
+      required-flags: 3
+      minimum-excess: 0.05
       ping-compensation-per-ms: 0.0022
       ping-compensation-cap: 0.40
       weight-per-block: 0.25

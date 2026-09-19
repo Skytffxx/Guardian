@@ -46,7 +46,7 @@ public final class InventoryCheck extends AbstractCheck {
 
     @Override
     public void onPacketReceive(PlayerProfile profile, PacketData packet) {
-        if (!packet.packetName().contains("ClickWindow")) {
+        if (!packet.matchesName("ClickWindow")) {
             return;
         }
 

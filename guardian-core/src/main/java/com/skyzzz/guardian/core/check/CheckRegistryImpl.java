@@ -31,6 +31,11 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     private final Map<String, Check> byName = new ConcurrentHashMap<>();
     private final Map<CheckCategory, List<Check>> byCategory = new ConcurrentHashMap<>();
+    // Cached enabled-check snapshots per dispatch path: rebuilding the filtered
+    // list on every packet is the hottest allocation in the pipeline.
+    private volatile java.util.List<Check> packetMoveListeners = java.util.List.of();
+    private volatile java.util.List<Check> packetReceiveExtra = java.util.List.of();
+    private volatile java.util.List<Check> anySendTickJoinDamage = java.util.List.of();
 
     public CheckRegistryImpl(GuardianPlugin plugin, GuardianConfig config) {
         this.plugin = plugin;
@@ -47,6 +52,7 @@ public final class CheckRegistryImpl implements CheckRegistry {
             byCategory.get(previous.category()).remove(previous);
         }
         byCategory.get(check.category()).add(check);
+        refreshCaches();
     }
 
     @Override
@@ -54,6 +60,7 @@ public final class CheckRegistryImpl implements CheckRegistry {
         Check removed = byName.remove(name.toLowerCase());
         if (removed != null) {
             byCategory.get(removed.category()).remove(removed);
+            refreshCaches();
         }
     }
 
@@ -80,6 +87,7 @@ public final class CheckRegistryImpl implements CheckRegistry {
         }
         check.setEnabled(enabled);
         config.set("checks." + check.category().key() + "." + check.name() + ".enabled", enabled);
+        refreshCaches();
         return true;
     }
 
@@ -98,67 +106,76 @@ public final class CheckRegistryImpl implements CheckRegistry {
                 check.setEnabled(false);
             }
         }
+        refreshCaches();
     }
 
     @Override
     public void dispatchPacketReceive(PlayerProfile profile, PacketData data) {
-        dispatchCategory(CheckCategory.PACKET, c -> c.onPacketReceive(profile, data));
-        dispatchCategory(CheckCategory.COMBAT, c -> c.onPacketReceive(profile, data));
-        dispatchCategory(CheckCategory.MOVEMENT, c -> c.onPacketReceive(profile, data));
-        dispatchCategory(CheckCategory.PLAYER, c -> c.onPacketReceive(profile, data));
-        dispatchCategory(CheckCategory.WORLD, c -> c.onPacketReceive(profile, data));
+        for (Check check : packetMoveListeners) {
+            safe(() -> check.onPacketReceive(profile, data), check);
+        }
+        for (Check check : packetReceiveExtra) {
+            safe(() -> check.onPacketReceive(profile, data), check);
+        }
     }
 
     @Override
     public void dispatchPacketSend(PlayerProfile profile, PacketData data) {
-        for (List<Check> checks : byCategory.values()) {
-            for (Check check : checks) {
-                if (check.isEnabled()) {
-                    safe(() -> check.onPacketSend(profile, data), check);
-                }
+        for (Check check : anySendTickJoinDamage) {
+            if (check.isEnabled()) {
+                safe(() -> check.onPacketSend(profile, data), check);
             }
         }
     }
 
     @Override
     public void dispatchMove(PlayerProfile profile, MoveData data) {
-        dispatchCategory(CheckCategory.MOVEMENT, c -> c.onMove(profile, data));
-        dispatchCategory(CheckCategory.COMBAT, c -> c.onMove(profile, data));
+        for (Check check : packetMoveListeners) {
+            safe(() -> check.onMove(profile, data), check);
+        }
     }
 
     @Override
     public void dispatchAttack(PlayerProfile profile, AttackData data) {
-        dispatchCategory(CheckCategory.COMBAT, c -> c.onAttack(profile, data));
+        for (Check check : packetMoveListeners) {
+            if (check.category() == CheckCategory.COMBAT) {
+                safe(() -> check.onAttack(profile, data), check);
+            }
+        }
     }
 
     @Override
     public void dispatchBlockPlace(PlayerProfile profile, BlockPlaceData data) {
-        dispatchCategory(CheckCategory.WORLD, c -> c.onBlockPlace(profile, data));
+        for (Check check : packetReceiveExtra) {
+            if (check.category() == CheckCategory.WORLD) {
+                safe(() -> check.onBlockPlace(profile, data), check);
+            }
+        }
     }
 
     @Override
     public void dispatchBlockBreak(PlayerProfile profile, BlockBreakData data) {
-        dispatchCategory(CheckCategory.WORLD, c -> c.onBlockBreak(profile, data));
+        for (Check check : packetReceiveExtra) {
+            if (check.category() == CheckCategory.WORLD) {
+                safe(() -> check.onBlockBreak(profile, data), check);
+            }
+        }
     }
 
     @Override
     public void dispatchTick(PlayerProfile profile) {
-        for (List<Check> checks : byCategory.values()) {
-            for (Check check : checks) {
-                if (check.isEnabled()) {
-                    safe(() -> check.onTick(profile), check);
-                }
+        for (Check check : anySendTickJoinDamage) {
+            if (check.isEnabled()) {
+                safe(() -> check.onTick(profile), check);
             }
         }
     }
 
     @Override
     public void dispatchJoin(PlayerProfile profile) {
-        for (List<Check> checks : byCategory.values()) {
-            for (Check check : checks) {
-                if (check.isEnabled()) {
-                    safe(() -> check.onJoin(profile), check);
-                }
+        for (Check check : anySendTickJoinDamage) {
+            if (check.isEnabled()) {
+                safe(() -> check.onJoin(profile), check);
             }
         }
     }
@@ -172,12 +189,36 @@ public final class CheckRegistryImpl implements CheckRegistry {
         }
     }
 
-    private void dispatchCategory(CheckCategory category, java.util.function.Consumer<Check> action) {
-        for (Check check : byCategory.get(category)) {
-            if (check.isEnabled()) {
-                safe(() -> action.accept(check), check);
+    @Override
+    public void dispatchDamage(PlayerProfile profile, DamageData data) {
+        for (Check check : packetMoveListeners) {
+            if (check.category() == CheckCategory.COMBAT) {
+                safe(() -> check.onDamage(profile, data), check);
             }
         }
+    }
+
+    /**
+     * Rebuilds the cached dispatch snapshots. Called on register/unregister,
+     * reload, toggle, and whenever a throwing check is auto-disabled.
+     */
+    private void refreshCaches() {
+        List<Check> move = new ArrayList<>();
+        List<Check> extra = new ArrayList<>();
+        List<Check> rest = new ArrayList<>();
+        for (Check check : byName.values()) {
+            if (!check.isEnabled()) {
+                continue;
+            }
+            switch (check.category()) {
+                case PACKET, MOVEMENT, COMBAT -> move.add(check);
+                case PLAYER, WORLD -> extra.add(check);
+            }
+            rest.add(check);
+        }
+        packetMoveListeners = List.copyOf(move);
+        packetReceiveExtra = List.copyOf(extra);
+        anySendTickJoinDamage = List.copyOf(rest);
     }
 
     private void safe(Runnable action, Check check) {
@@ -187,11 +228,7 @@ public final class CheckRegistryImpl implements CheckRegistry {
             plugin.getLogger().log(Level.SEVERE,
                     "Check '" + check.name() + "' threw and has been disabled", throwable);
             check.setEnabled(false);
+            refreshCaches();
         }
-    }
-
-    @Override
-    public void dispatchDamage(PlayerProfile profile, DamageData data) {
-        dispatchCategory(CheckCategory.COMBAT, c -> c.onDamage(profile, data));
     }
 }

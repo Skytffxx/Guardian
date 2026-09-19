@@ -64,6 +64,12 @@ public final class FastBreakCheck extends AbstractCheck {
         state.lastBreakNanos = now;
         state.lastMaterial = breakData.material();
 
+        // Stale heartbeats (teleport, world change, long pause) are not break intervals.
+        if (actualMs > d("ignore-above-ms", 10_000.0D)) {
+            state.streak = 0;
+            return;
+        }
+
         double expectedMs = expectedBreakMs(profile, breakData.material());
         if (expectedMs <= 0.0D) {
             return;

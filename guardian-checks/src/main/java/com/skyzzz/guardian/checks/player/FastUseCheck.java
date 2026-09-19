@@ -30,7 +30,7 @@ public final class FastUseCheck extends AbstractCheck {
 
     @Override
     public void onPacketReceive(PlayerProfile profile, PacketData packet) {
-        if (!packet.packetName().contains("UseItem")) {
+        if (!packet.matchesName("UseItem")) {
             return;
         }
         Object durationAttr = profile.attribute("last-use-duration-ms");

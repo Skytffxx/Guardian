@@ -62,7 +62,7 @@ public abstract class AbstractCheck implements Check {
     }
 
     protected boolean b(String key, boolean def) {
-        return settings == null ? false : settings.getBoolean(key, def);
+        return settings == null ? def : settings.getBoolean(key, def);
     }
 
     protected String s(String key, String def) {

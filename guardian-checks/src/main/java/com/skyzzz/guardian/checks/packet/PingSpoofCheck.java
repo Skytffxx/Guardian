@@ -44,7 +44,7 @@ public final class PingSpoofCheck extends AbstractCheck {
 
     @Override
     public void onPacketSend(PlayerProfile profile, PacketData packet) {
-        if (!packet.packetName().contains("KeepAlive")) {
+        if (!packet.matchesName("KeepAlive")) {
             return;
         }
         State state = states.computeIfAbsent(profile.uuid(),
@@ -62,7 +62,7 @@ public final class PingSpoofCheck extends AbstractCheck {
 
     @Override
     public void onPacketReceive(PlayerProfile profile, PacketData packet) {
-        if (!packet.packetName().contains("KeepAlive")) {
+        if (!packet.matchesName("KeepAlive")) {
             return;
         }
         State state = states.computeIfAbsent(profile.uuid(),
