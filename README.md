@@ -1,4 +1,3 @@
-```markdown
 # Guardian — Complete Reference
 
 A crossplay-aware, low-false-positive anticheat for Paper/Spigot servers.
@@ -45,12 +44,10 @@ Guardian's design goal is **fewer false positives than comparable anticheats** w
 Three Maven modules, one deployed jar.
 
 ```
-
 guardian-parent (pom)
 ├── guardian-api        — zero-Bukkit contracts and data model
 ├── guardian-checks     — all detection classes
 └── guardian-core       — plugin entry point, listeners, config, storage
-
 ```
 
 ### Dependency rules
@@ -75,7 +72,6 @@ This is enforced by the compiler, not by convention.
 ### Directory layout
 
 ```
-
 guardian/
 ├── pom.xml                         — parent / aggregator
 ├── guardian-api/
@@ -98,25 +94,24 @@ guardian/
 │       ├── packet/                 — 4 checks
 │       └── CheckBootstrap.java
 └── guardian-core/
-└── src/main/
-├── java/com/skyzzz/guardian/core/
-│   ├── GuardianPlugin.java
-│   ├── check/CheckRegistryImpl.java
-│   ├── config/              — GuardianConfig, BukkitCheckSettings, Messages
-│   ├── player/              — GuardianProfile, GuardianProfileManager, ProfileListener
-│   ├── packet/              — GuardianPacketListener, PacketEventsHook
-│   ├── punish/PunishmentManager.java
-│   ├── alert/               — AlertManager, DiscordWebhook
-│   ├── command/GuardianCommand.java
-│   ├── storage/             — MemoryViolationStore, SqlViolationStore
-│   ├── integration/         — Floodgate, LuckPerms, Vault, PlaceholderAPI, bStats
-│   ├── replay/ReplayRunner.java
-│   └── util/                — Schedulers, Text
-└── resources/
-├── plugin.yml
-├── config.yml
-└── messages.yml
-
+    └── src/main/
+        ├── java/com/skyzzz/guardian/core/
+        │   ├── GuardianPlugin.java
+        │   ├── check/CheckRegistryImpl.java
+        │   ├── config/              — GuardianConfig, BukkitCheckSettings, Messages
+        │   ├── player/              — GuardianProfile, GuardianProfileManager, ProfileListener
+        │   ├── packet/              — GuardianPacketListener, PacketEventsHook
+        │   ├── punish/PunishmentManager.java
+        │   ├── alert/               — AlertManager, DiscordWebhook
+        │   ├── command/GuardianCommand.java
+        │   ├── storage/             — MemoryViolationStore, SqlViolationStore
+        │   ├── integration/         — Floodgate, LuckPerms, Vault, PlaceholderAPI, bStats
+        │   ├── replay/ReplayRunner.java
+        │   └── util/                — Schedulers, Text
+        └── resources/
+            ├── plugin.yml
+            ├── config.yml
+            └── messages.yml
 ```
 
 ---
@@ -188,45 +183,41 @@ guardian/
 ### Packet path
 
 ```
-
 Player client
-│
-▼
+    │
+    ▼
 PacketEvents (async)
-│
-▼
+    │
+    ▼
 GuardianPacketListener
-├── onPacketReceive ──▶ dispatch to checks (packet category first)
-├── build MoveData / AttackData from packet
-│       └── world access (hitbox, LoS) hopped to main thread
-└── onPacketSend ──▶ record velocity, keep-alive
-│
-▼
+    ├── onPacketReceive ──▶ dispatch to checks (packet category first)
+    ├── build MoveData / AttackData from packet
+    │       └── world access (hitbox, LoS) hopped to main thread
+    └── onPacketSend ──▶ record velocity, keep-alive
+    │
+    ▼
 CheckRegistryImpl.dispatchX(profile, data)
-│
-▼
+    │
+    ▼
 Each enabled Check in that category
-│
-▼
+    │
+    ▼
 AbstractCheck.flag() → profile.flag() → ViolationLevel.add()
-│
-▼
+    │
+    ▼
 PunishmentManager.handleFlag() → alert + evaluateTiers()
-
 ```
 
 ### Per-tick path
 
 ```
-
 GuardianPlugin.tickProfiles() (every tick)
-│
-├── refresh TPS
-├── refresh ping
-├── refresh health
-├── dispatchTick to all checks
-└── profile.advanceTick()
-
+    │
+    ├── refresh TPS
+    ├── refresh ping
+    ├── refresh health
+    ├── dispatchTick to all checks
+    └── profile.advanceTick()
 ```
 
 ### Attribute feed path
@@ -277,13 +268,13 @@ Guardian :: Checks .. SUCCESS
 Guardian :: Core .... SUCCESS
 ```
 
-Java 25 target (for 26.1+)
+### Java 25 target (for 26.1+)
 
 ```bash
 mvn clean package -Pjava25
 ```
 
-Faster iteration during check-writing
+### Faster iteration during check-writing
 
 ```bash
 # Only rebuild the checks module and its dependencies
@@ -293,17 +284,17 @@ mvn -pl guardian-checks -am compile
 mvn clean package -fae
 ```
 
-Deploy
+### Deploy
 
-One jar goes to the server:
+**One jar** goes to the server:
 
 ```
 guardian-core/target/Guardian-1.0.0-SNAPSHOT.jar
 ```
 
-Do not upload guardian-api-*.jar or guardian-checks-*.jar — they are already inside the Guardian jar. Do not upload original-Guardian-*.jar either; that is the pre-shade artifact.
+Do **not** upload `guardian-api-*.jar` or `guardian-checks-*.jar` — they are already inside the Guardian jar. Do **not** upload `original-Guardian-*.jar` either; that is the pre-shade artifact.
 
-Server plugins/ directory should contain:
+Server `plugins/` directory should contain:
 
 ```
 plugins/
@@ -312,9 +303,9 @@ plugins/
 └── Vault (1.7).jar    (optional)
 ```
 
-Guardian hard-depends on PacketEvents. Without it, Guardian will not load.
+Guardian **hard-depends** on PacketEvents. Without it, Guardian will not load.
 
-Verify the jar before upload
+### Verify the jar before upload
 
 ```bash
 # Plugin class must be present
@@ -328,9 +319,9 @@ unzip -l guardian-core/target/Guardian-1.0.0-SNAPSHOT.jar | grep -c "com/skyzzz/
 unzip -p guardian-core/target/Guardian-1.0.0-SNAPSHOT.jar plugin.yml | head -5
 ```
 
-Cache clearing
+### Cache clearing
 
-Paper remaps plugins into plugins/.paper-remapped/ and does not always invalidate this cache. If you replace the jar and the server still loads the old copy:
+Paper remaps plugins into `plugins/.paper-remapped/` and does not always invalidate this cache. If you replace the jar and the server still loads the old copy:
 
 ```bash
 rm -rf plugins/.paper-remapped/
@@ -338,7 +329,7 @@ rm -rf plugins/.paper-remapped/
 
 Then restart.
 
-Expected startup output
+### Expected startup output
 
 ```
 [Guardian] Enabling Guardian v1.0.0-SNAPSHOT
@@ -347,43 +338,42 @@ Expected startup output
 
 ---
 
-6. Configuration reference
+## 6. Configuration reference
 
-Two files: config.yml and messages.yml, both generated on first run under plugins/Guardian/.
+Two files: `config.yml` and `messages.yml`, both generated on first run under `plugins/Guardian/`.
 
-Top-level sections
+### Top-level sections
 
-Section Purpose
-performance History buffer sizes, async pool size, dispatch budget
-violations Decay rate, ceiling, clean reward
-false-positives Bedrock multiplier, TPS compensation, ping compensation, exemptions
-punishments Per-check, per-category, and global tiers
-alerts Throttle between alerts for the same check
-discord Webhook configuration
-storage MEMORY, SQLITE, MYSQL, or MARIADB
-checks All 31 checks, grouped by category
+| Section | Purpose |
+|---|---|
+| `performance` | History buffer sizes, async pool size, dispatch budget |
+| `violations` | Decay rate, ceiling, clean reward |
+| `false-positives` | Bedrock multiplier, TPS compensation, ping compensation, exemptions |
+| `punishments` | Per-check, per-category, and global tiers |
+| `alerts` | Throttle between alerts for the same check |
+| `discord` | Webhook configuration |
+| `storage` | MEMORY, SQLITE, MYSQL, or MARIADB |
+| `checks` | All 31 checks, grouped by category |
 
-Configurability contract
+### Configurability contract
 
-Configurable (85–90%):
+**Configurable (85–90%)**:
+- Per-check enable/disable
+- Every threshold, streak count, window size
+- VL weights, decay rates, clean rewards
+- Punishment commands per check/category/tier
+- Exemptions (worlds, gamemodes, permissions, regions)
+- Bedrock multiplier
+- Buffer sizes, thread pool size
 
-· Per-check enable/disable
-· Every threshold, streak count, window size
-· VL weights, decay rates, clean rewards
-· Punishment commands per check/category/tier
-· Exemptions (worlds, gamemodes, permissions, regions)
-· Bedrock multiplier
-· Buffer sizes, thread pool size
+**Hardcoded (10–15%)**:
+- Core packet sanity validation (NaN, bounds, invalid pitch)
+- Anti-tamper logic protecting the check pipeline
+- Dispatch order and fail-safe that disables a throwing check
 
-Hardcoded (10–15%):
+A fully config-editable sanity layer is a bypass, not a feature. `PacketSanityCheck` ignores its own `enabled: false` for this reason.
 
-· Core packet sanity validation (NaN, bounds, invalid pitch)
-· Anti-tamper logic protecting the check pipeline
-· Dispatch order and fail-safe that disables a throwing check
-
-A fully config-editable sanity layer is a bypass, not a feature. PacketSanityCheck ignores its own enabled: false for this reason.
-
-Exemptions
+### Exemptions
 
 ```yaml
 false-positives:
@@ -394,9 +384,9 @@ false-positives:
     regions: []                         # WorldGuard region ids
 ```
 
-Gamemode exemptions apply always, regardless of the config.
+Gamemode exemptions apply **always**, regardless of the config.
 
-Punishments
+### Punishments
 
 Commands fire from console, so any command-based punishment plugin works:
 
@@ -411,11 +401,11 @@ punishments:
             - "tempban {player} 3d Killaura ({check} VL {vl})"
 ```
 
-Placeholders: {player}, {uuid}, {check}, {vl}.
+Placeholders: `{player}`, `{uuid}`, `{check}`, `{vl}`.
 
 Cooldowns prevent a lag-induced VL spike from firing the same tier repeatedly.
 
-Storage
+### Storage
 
 ```yaml
 storage:
@@ -433,9 +423,9 @@ storage:
 
 Storage is optional. Guardian runs fine on the in-memory store. SQLite bundles a ~22 MB native driver — drop the dependency if you never use it.
 
-Messages
+### Messages
 
-messages.yml uses MiniMessage format. Supports hex colors, gradients, hover events, and click events:
+`messages.yml` uses MiniMessage format. Supports hex colors, gradients, hover events, and click events:
 
 ```yaml
 alert-format: "<dark_gray>[<gradient:#ffcc00:#ff6600><bold>G</bold></gradient><dark_gray>] <white>{player} <gray>failed <yellow>{check} <gray>VL <red>{vl}"
@@ -443,97 +433,87 @@ alert-format: "<dark_gray>[<gradient:#ffcc00:#ff6600><bold>G</bold></gradient><d
 
 ---
 
-7. False-positive mitigation
+## 7. False-positive mitigation
 
 Six mechanisms, all in place by default:
 
-1. Multi-signal corroboration
+### 1. Multi-signal corroboration
+No check flags from a single anomalous packet. Autoclicker requires **both** low CV **and** high duplicate-interval density. Inventory requires **both** excessive CPS **and** same-slot spam. Fakecriticals requires the reconstruct signal to agree with the server's crit flag.
 
-No check flags from a single anomalous packet. Autoclicker requires both low CV and high duplicate-interval density. Inventory requires both excessive CPS and same-slot spam. Fakecriticals requires the reconstruct signal to agree with the server's crit flag.
+### 2. Rolling-window evaluation
+Movement and combat checks evaluate the last N ticks and require consistent anomalies. Reach uses a 12-sample window with `required-flags: 5`. Speed uses a 12-tick window with `required-flags: 6`.
 
-2. Rolling-window evaluation
-
-Movement and combat checks evaluate the last N ticks and require consistent anomalies. Reach uses a 12-sample window with required-flags: 5. Speed uses a 12-tick window with required-flags: 6.
-
-3. TPS + latency compensation
-
+### 3. TPS + latency compensation
 Every timing threshold scales with current TPS. Reach and block-reach distances scale with ping. A lag spike cannot read as a cheat.
 
-4. Bedrock leniency profiles
+### 4. Bedrock leniency profiles
+Geyser/Floodgate players get thresholds **multiplied** by `false-positives.bedrock-threshold-multiplier` (default 1.35), not exemption. Touch input produces different aim, placement timing, and combat rhythm — the check still runs, just with wider tolerance.
 
-Geyser/Floodgate players get thresholds multiplied by false-positives.bedrock-threshold-multiplier (default 1.35), not exemption. Touch input produces different aim, placement timing, and combat rhythm — the check still runs, just with wider tolerance.
+### 5. Exemptions
+Per-world, per-gamemode, permission-based, and region-based. Creative and spectator are **always** exempt from combat and movement checks.
 
-5. Exemptions
-
-Per-world, per-gamemode, permission-based, and region-based. Creative and spectator are always exempt from combat and movement checks.
-
-6. Review-before-punish
-
-The /guardian profile command shows live VL per check. Every flag produces a human-readable debug string (e.g. dist=3.142 allowed=3.083 excess=0.059 ping=42ms). Xray is explicitly review-only.
+### 6. Review-before-punish
+The `/guardian profile` command shows live VL per check. Every flag produces a human-readable debug string (e.g. `dist=3.142 allowed=3.083 excess=0.059 ping=42ms`). Xray is explicitly review-only.
 
 ---
 
-8. Known limitations
+## 8. Known limitations
 
 Three checks are honest approximations rather than perfect validators:
 
-fakecriticals — protocol limitation
+### `fakecriticals` — protocol limitation
+The Minecraft protocol does not carry a "this is a crit" flag. The check hooks the **damage event** and reconstructs the client's trajectory from raw move packets. If the server awarded a crit but the trajectory proves the player could not have fallen, the crit was faked. This is the closest signal available at the protocol level. It is not a perfect crit validator.
 
-The Minecraft protocol does not carry a "this is a crit" flag. The check hooks the damage event and reconstructs the client's trajectory from raw move packets. If the server awarded a crit but the trajectory proves the player could not have fallen, the crit was faked. This is the closest signal available at the protocol level. It is not a perfect crit validator.
+### `fastbreak` — formula coverage
+The check uses the real vanilla break-time formula (tool speed, Efficiency `level²+1`, Haste multiplier, Aqua Affinity divisor, airborne divisor, conduit power multiplier). But it does not cover every edge case:
+- Custom blocks with modified hardness on modded servers
+- Mods that alter break mechanics
+- Unusual block/tool/enchantment combinations
 
-fastbreak — formula coverage
+Config ships `minimum-time-ratio: 0.75` for the first week — raise toward 0.85 if you see false positives on normal mining.
 
-The check uses the real vanilla break-time formula (tool speed, Efficiency level²+1, Haste multiplier, Aqua Affinity divisor, airborne divisor, conduit power multiplier). But it does not cover every edge case:
+### `velocity` — sample-window sensitivity
+Knockback is absorbed legitimately by blocks, water, ladders, and elytra. The check exempts these cases. But a client with unusual network conditions can also appear to ignore knockback. Config's `minimum-ratio: 0.55` requires the actual movement to be less than 55% of expected over 6 ticks — conservative.
 
-· Custom blocks with modified hardness on modded servers
-· Mods that alter break mechanics
-· Unusual block/tool/enchantment combinations
-
-Config ships minimum-time-ratio: 0.75 for the first week — raise toward 0.85 if you see false positives on normal mining.
-
-velocity — sample-window sensitivity
-
-Knockback is absorbed legitimately by blocks, water, ladders, and elytra. The check exempts these cases. But a client with unusual network conditions can also appear to ignore knockback. Config's minimum-ratio: 0.55 requires the actual movement to be less than 55% of expected over 6 ticks — conservative.
-
-regen — needs per-tick health
-
-Regen cadence cannot be measured if health is not updated every tick. As of the current build, GuardianPlugin.tickProfiles() refreshes health every tick so the check works even when a player is standing still.
+### `regen` — needs per-tick health
+Regen cadence cannot be measured if health is not updated every tick. As of the current build, `GuardianPlugin.tickProfiles()` refreshes health every tick so the check works even when a player is standing still.
 
 ---
 
-9. Tuning guide
+## 9. Tuning guide
 
-Order of operations
+### Order of operations
 
-1. Get false-positives.* right first.
+**1. Get `false-positives.*` right first.**
 
-These are the multipliers that make every other threshold work. If your server runs at 18 TPS average, lower tps-compensation.maximum-factor. If your Bedrock population struggles, raise bedrock-threshold-multiplier.
+These are the multipliers that make every other threshold work. If your server runs at 18 TPS average, lower `tps-compensation.maximum-factor`. If your Bedrock population struggles, raise `bedrock-threshold-multiplier`.
 
-2. Set violations.decay-per-second.
+**2. Set `violations.decay-per-second`.**
 
 This is the single strongest lever against false positives. Higher decay = a lag spike bleeds off faster before it can matter. Default 0.35 is conservative — if you see chained flags after one network stutter, raise to 0.5.
 
-3. Tune checks.* thresholds last, with debug on.
+**3. Tune `checks.*` thresholds last, with debug on.**
 
-Run /guardian debug <check> in-game, then play normally for 10–20 minutes. The debug output shows the actual values passing through the check. Set the threshold just above the highest legitimate value you observe.
+Run `/guardian debug <check>` in-game, then play normally for 10–20 minutes. The debug output shows the actual values passing through the check. Set the threshold just above the highest legitimate value you observe.
 
-4. Configure punishments.* after one week of alerts.
+**4. Configure `punishments.*` after one week of alerts.**
 
 Do not enable punishment tiers until you have watched a week of alert traffic per check.
 
-Rules of thumb
+### Rules of thumb
 
-Symptom Fix
-Check fires on lag spikes Raise tps-compensation.maximum-factor or lower the check's minimum-* threshold
-Check fires on high-ping players Raise ping-compensation.maximum-*
-Check fires on Bedrock players Raise false-positives.bedrock-threshold-multiplier
-Check never fires on known cheaters Lower the check's minimum-* threshold, or lower required-flags
-Check fires on one specific block/tool combo Raise fastbreak.minimum-time-ratio, or whitelist the block in the check
-VL climbs too fast during normal play Raise violations.decay-per-second
+| Symptom | Fix |
+|---|---|
+| Check fires on lag spikes | Raise `tps-compensation.maximum-factor` or lower the check's `minimum-*` threshold |
+| Check fires on high-ping players | Raise `ping-compensation.maximum-*` |
+| Check fires on Bedrock players | Raise `false-positives.bedrock-threshold-multiplier` |
+| Check never fires on known cheaters | Lower the check's `minimum-*` threshold, or lower `required-flags` |
+| Check fires on one specific block/tool combo | Raise `fastbreak.minimum-time-ratio`, or whitelist the block in the check |
+| VL climbs too fast during normal play | Raise `violations.decay-per-second` |
 
-Replay-before-punish
+### Replay-before-punish
 
-ReplayRunner reads a text file of recorded movement packets and replays it through the check pipeline. It reports how many records produced a violation — that is your false-positive rate on legitimate gameplay.
+`ReplayRunner` reads a text file of recorded movement packets and replays it through the check pipeline. It reports how many records produced a violation — that is your false-positive rate on legitimate gameplay.
 
 Format (one record per line):
 
@@ -544,141 +524,122 @@ TICK,deltaNanos
 
 Use it to measure threshold changes before deploying.
 
-Safe thresholds for common servers
+### Safe thresholds for common servers
 
-Server type Adjustments
-Vanilla survival Defaults are fine
-Skyblock / oneblock Disable xray, lower fly.minimum-air-ticks
-PvP / factions Lower reach.max-reach to 3.1, raise autoclicker.min-coefficient-of-variation to 0.09
-Bedrock-only Raise bedrock-threshold-multiplier to 1.5
-Laggy host (< 18 TPS) Raise tps-compensation.maximum-factor to 2.5
-Creative plots Already exempt — verify false-positives.exemptions.gamemodes includes CREATIVE
+| Server type | Adjustments |
+|---|---|
+| Vanilla survival | Defaults are fine |
+| Skyblock / oneblock | Disable `xray`, lower `fly.minimum-air-ticks` |
+| PvP / factions | Lower `reach.max-reach` to 3.1, raise `autoclicker.min-coefficient-of-variation` to 0.09 |
+| Bedrock-only | Raise `bedrock-threshold-multiplier` to 1.5 |
+| Laggy host (< 18 TPS) | Raise `tps-compensation.maximum-factor` to 2.5 |
+| Creative plots | Already exempt — verify `false-positives.exemptions.gamemodes` includes CREATIVE |
 
 ---
 
-10. Developer notes
+## 10. Developer notes
 
-Adding a new check
+### Adding a new check
 
-1. Create guardian-checks/src/main/java/com/skyzzz/guardian/checks/<category>/MyCheck.java
-2. Extend AbstractCheck, pass name and category to super()
+1. Create `guardian-checks/src/main/java/com/skyzzz/guardian/checks/<category>/MyCheck.java`
+2. Extend `AbstractCheck`, pass name and category to `super()`
 3. Override only the hooks you need
-4. Register in CheckBootstrap.create()
-5. Add a checks.<category>.<name> section to config.yml
-6. Add punishments.checks.<name>: { tiers: [] } if it should not auto-punish
+4. Register in `CheckBootstrap.create()`
+5. Add a `checks.<category>.<name>` section to `config.yml`
+6. Add `punishments.checks.<name>: { tiers: [] }` if it should not auto-punish
 
-You cannot import org.bukkit in a check. If you need world state, add an attribute to PlayerProfile and populate it from ProfileListener.
+You **cannot** import `org.bukkit` in a check. If you need world state, add an attribute to `PlayerProfile` and populate it from `ProfileListener`.
 
-Adding a new attribute feed
+### Adding a new attribute feed
 
-1. Add the write in ProfileListener (appropriate event handler)
-2. Add the read in the check via profile.attribute("key")
+1. Add the write in `ProfileListener` (appropriate event handler)
+2. Add the read in the check via `profile.attribute("key")`
 3. Document the key in this file under "Data flow"
 
-The AbstractCheck protected helpers
+### The `AbstractCheck` protected helpers
 
-Helper Purpose
-d(key, def) Read a double from check config with default
-i(key, def) Read an int from check config with default
-b(key, def) Read a boolean from check config with default
-s(key, def) Read a string from check config with default
-scaled(profile, key, base) Read a double and multiply by the player's threshold scale (Bedrock multiplier)
-flag(profile, debug, args) Raise VL with the configured vl-weight
-flag(profile, weight, debug, args) Raise VL with vl-weight * weight
-reward(profile, amount) Subtract VL for clean behaviour
+| Helper | Purpose |
+|---|---|
+| `d(key, def)` | Read a double from check config with default |
+| `i(key, def)` | Read an int from check config with default |
+| `b(key, def)` | Read a boolean from check config with default |
+| `s(key, def)` | Read a string from check config with default |
+| `scaled(profile, key, base)` | Read a double and multiply by the player's threshold scale (Bedrock multiplier) |
+| `flag(profile, debug, args)` | Raise VL with the configured `vl-weight` |
+| `flag(profile, weight, debug, args)` | Raise VL with `vl-weight * weight` |
+| `reward(profile, amount)` | Subtract VL for clean behaviour |
 
-Debug output format
+### Debug output format
 
-Every flag produces a formatted debug string that prints under /guardian debug <check>. Example:
+Every flag produces a formatted debug string that prints under `/guardian debug <check>`. Example:
 
 ```
 [reach] +1.50 -> 4.50 | dist=3.142 allowed=3.083 excess=0.059 ping=42ms over=5/12
 ```
 
-Format: [check-name] +<weight> -> <new-vl> | <debug string>
+Format: `[check-name] +<weight> -> <new-vl> | <debug string>`
 
 Keep debug strings informative — they are the primary tool staff use to judge whether a flag is legitimate.
 
-The fail-safe
+### The fail-safe
 
-CheckRegistryImpl.safe() wraps every dispatch call. If a check throws, it is logged once and disabled. One broken check cannot take down the whole pipeline.
+`CheckRegistryImpl.safe()` wraps every dispatch call. If a check throws, it is logged once and disabled. One broken check cannot take down the whole pipeline.
 
-Threading model
+### Threading model
 
-Operation Thread
-Packet parsing Async (PacketEvents worker)
-Attribute reads from PlayerProfile Same thread as the check
-World state access (player.getLocation(), hasLineOfSight) Main thread, hopped via Schedulers.runSync
-Database writes Async (single-threaded queue in SqlViolationStore)
-Discord webhook Async (single-threaded executor in DiscordWebhook)
-Config reload Main thread
+| Operation | Thread |
+|---|---|
+| Packet parsing | Async (PacketEvents worker) |
+| Attribute reads from `PlayerProfile` | Same thread as the check |
+| World state access (`player.getLocation()`, `hasLineOfSight`) | Main thread, hopped via `Schedulers.runSync` |
+| Database writes | Async (single-threaded queue in `SqlViolationStore`) |
+| Discord webhook | Async (single-threaded executor in `DiscordWebhook`) |
+| Config reload | Main thread |
 
-GuardianProfile.attributes is a ConcurrentHashMap, so attribute reads/writes are safe from any thread.
-
----
-
-Appendix A — Command reference
-
-Command Permission Purpose
-/guardian help guardian.command Show command list
-/guardian profile <player> guardian.command.profile Live check status + VL breakdown
-/guardian check <name> <on\|off> guardian.command.check Toggle a check
-/guardian alerts guardian.alerts Toggle live flag notifications for yourself
-/guardian debug <check\|all> guardian.command.debug Enable verbose per-check values
-/guardian history <player> [limit] guardian.command.history Violation log
-/guardian reload guardian.command.reload Reload config.yml + messages.yml
-
-Appendix B — PlaceholderAPI placeholders
-
-Placeholder Returns
-%guardian_vl_total% Sum of VL across all checks
-%guardian_vl_<check>% VL for one check
-%guardian_platform% JAVA or BEDROCK
-%guardian_checks% Number of registered checks
-%guardian_enabled_<check>% true / false
-
-Appendix C — Permissions
-
-Permission Default Purpose
-guardian.command op Base command access
-guardian.command.profile op View live profile
-guardian.command.check op Toggle checks
-guardian.command.debug op Verbose mode
-guardian.command.history op Browse history
-guardian.command.reload op Reload config
-guardian.alerts op Receive live alerts
-guardian.exempt false Fully exempt from all checks
-guardian.exempt.combat false Exempt from combat checks
-guardian.exempt.movement false Exempt from movement checks
-guardian.exempt.world false Exempt from world checks
-guardian.exempt.player false Exempt from player checks
-guardian.exempt.packet false Exempt from packet checks
+`GuardianProfile.attributes` is a `ConcurrentHashMap`, so attribute reads/writes are safe from any thread.
 
 ---
 
-Guardian 1.0.0-SNAPSHOT — skyzzz
+## Appendix A — Command reference
 
-```
+| Command | Permission | Purpose |
+|---|---|---|
+| `/guardian help` | `guardian.command` | Show command list |
+| `/guardian profile <player>` | `guardian.command.profile` | Live check status + VL breakdown |
+| `/guardian check <name> <on\|off>` | `guardian.command.check` | Toggle a check |
+| `/guardian alerts` | `guardian.alerts` | Toggle live flag notifications for yourself |
+| `/guardian debug <check\|all>` | `guardian.command.debug` | Enable verbose per-check values |
+| `/guardian history <player> [limit]` | `guardian.command.history` | Violation log |
+| `/guardian reload` | `guardian.command.reload` | Reload `config.yml` + `messages.yml` |
+
+## Appendix B — PlaceholderAPI placeholders
+
+| Placeholder | Returns |
+|---|---|
+| `%guardian_vl_total%` | Sum of VL across all checks |
+| `%guardian_vl_<check>%` | VL for one check |
+| `%guardian_platform%` | `JAVA` or `BEDROCK` |
+| `%guardian_checks%` | Number of registered checks |
+| `%guardian_enabled_<check>%` | `true` / `false` |
+
+## Appendix C — Permissions
+
+| Permission | Default | Purpose |
+|---|---|---|
+| `guardian.command` | op | Base command access |
+| `guardian.command.profile` | op | View live profile |
+| `guardian.command.check` | op | Toggle checks |
+| `guardian.command.debug` | op | Verbose mode |
+| `guardian.command.history` | op | Browse history |
+| `guardian.command.reload` | op | Reload config |
+| `guardian.alerts` | op | Receive live alerts |
+| `guardian.exempt` | false | Fully exempt from all checks |
+| `guardian.exempt.combat` | false | Exempt from combat checks |
+| `guardian.exempt.movement` | false | Exempt from movement checks |
+| `guardian.exempt.world` | false | Exempt from world checks |
+| `guardian.exempt.player` | false | Exempt from player checks |
+| `guardian.exempt.packet` | false | Exempt from packet checks |
 
 ---
 
-## How to save it
-
-In Codespaces, from the repo root:
-
-```bash
-cd /workspaces/Guardian
-# paste the content between the ```markdown markers into your editor and save as GUARDIAN.md
-```
-
-Or use the VS Code file explorer: right-click on the repo root → New File → name it GUARDIAN.md → paste the content → save.
-
-Then commit:
-
-```bash
-git add GUARDIAN.md
-git commit -m "add complete reference documentation"
-git push
-```
-
-That is the whole thing in one file. Everything from the project overview through the permission table.
+**Guardian 1.0.0-SNAPSHOT** — skyzzz
