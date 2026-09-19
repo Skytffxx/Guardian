@@ -3,11 +3,11 @@ package com.skyzzz.guardian.core;
 import com.skyzzz.guardian.api.GuardianAPI;
 import com.skyzzz.guardian.api.check.Check;
 import com.skyzzz.guardian.api.check.CheckRegistry;
-import com.skyzzz.guardian.core.check.CheckRegistryImpl;
 import com.skyzzz.guardian.api.player.ProfileManager;
 import com.skyzzz.guardian.api.violation.ViolationStore;
 import com.skyzzz.guardian.checks.CheckBootstrap;
 import com.skyzzz.guardian.core.alert.AlertManager;
+import com.skyzzz.guardian.core.check.CheckRegistryImpl;
 import com.skyzzz.guardian.core.command.GuardianCommand;
 import com.skyzzz.guardian.core.config.GuardianConfig;
 import com.skyzzz.guardian.core.config.Messages;
@@ -21,6 +21,7 @@ import com.skyzzz.guardian.core.player.ProfileListener;
 import com.skyzzz.guardian.core.punish.PunishmentManager;
 import com.skyzzz.guardian.core.storage.MemoryViolationStore;
 import com.skyzzz.guardian.core.storage.SqlViolationStore;
+import com.skyzzz.guardian.core.util.Banner;
 import com.skyzzz.guardian.core.util.Schedulers;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -43,24 +44,32 @@ public final class GuardianPlugin extends JavaPlugin implements GuardianAPI.Guar
 
     @Override
     public void onEnable() {
+        long startNanos = System.nanoTime();
         this.schedulers = new Schedulers(this);
+
+        Banner.print(getPluginMeta().getVersion());
 
         // 1. Config + messages -------------------------------------------------
         this.guardianConfig = new GuardianConfig(this);
         this.guardianConfig.load();
+        Banner.step("Configuration loaded", "config.yml");
+
         this.messages = new Messages(this);
         this.messages.load();
+        Banner.step("Messages loaded", "messages.yml");
 
         // 2. Storage -----------------------------------------------------------
         this.violationStore = createStore();
         try {
             violationStore.init();
+            Banner.step("Storage initialised", violationStore.getClass().getSimpleName());
         } catch (Exception exception) {
-            getLogger().log(Level.SEVERE, "Violation store failed to initialise; "
-                    + "falling back to memory-only", exception);
+            Banner.warn("Storage init failed — falling back to memory-only");
+            getLogger().log(Level.WARNING, "Violation store init failed", exception);
             this.violationStore = new MemoryViolationStore();
             try {
                 violationStore.init();
+                Banner.step("Storage initialised", "MemoryViolationStore (fallback)");
             } catch (Exception ignored) {
                 // Memory store cannot fail to init.
             }
@@ -69,70 +78,109 @@ public final class GuardianPlugin extends JavaPlugin implements GuardianAPI.Guar
         // 3. Player profiles ---------------------------------------------------
         this.floodgateHook = new FloodgateHook(this);
         this.profileManager = new GuardianProfileManager(this, guardianConfig, floodgateHook);
+        Banner.step("Player profiles ready",
+                floodgateHook.available() ? "Bedrock support enabled" : "Java only");
 
         // 4. Check registry ----------------------------------------------------
         this.checkRegistry = new CheckRegistryImpl(this, guardianConfig);
+        int total = 0;
         for (Check check : CheckBootstrap.create()) {
             checkRegistry.register(check);
+            total++;
         }
         checkRegistry.reloadAll();
+        long enabled = checkRegistry.all().stream().filter(Check::isEnabled).count();
+        Banner.step("Checks registered", enabled + " / " + total + " enabled");
 
         // 5. Punishment + alerts ----------------------------------------------
         this.punishmentManager = new PunishmentManager(this, guardianConfig, messages);
         this.alertManager = new AlertManager(this, guardianConfig, messages);
         this.punishmentManager.setAlertManager(alertManager);
+        Banner.step("Punishment & alert systems ready");
 
         // 6. Listeners ---------------------------------------------------------
         Bukkit.getPluginManager().registerEvents(
                 new ProfileListener(this, profileManager), this);
+        Banner.step("Event listeners registered");
 
+        // 7. PacketEvents ------------------------------------------------------
         this.packetHook = new PacketEventsHook(this);
         if (!packetHook.start(new GuardianPacketListener(this, profileManager, checkRegistry))) {
-            getLogger().severe("PacketEvents is missing or failed to hook. Guardian cannot "
-                    + "run accurately without it — disabling.");
+            Banner.fail("PacketEvents is missing or failed to hook");
+            Banner.fail("Guardian cannot run without it — disabling");
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
+        Banner.step("PacketEvents hooked", "packet inspection active");
 
-        // 7. Commands ----------------------------------------------------------
+        // 8. Commands ----------------------------------------------------------
         GuardianCommand command = new GuardianCommand(this);
         if (getCommand("guardian") != null) {
             getCommand("guardian").setExecutor(command);
             getCommand("guardian").setTabCompleter(command);
         }
+        Banner.step("Commands registered", "/guardian");
 
-        // 8. Integrations ------------------------------------------------------
+        // 9. Integrations ------------------------------------------------------
+        StringBuilder integrations = new StringBuilder();
+        if (Bukkit.getPluginManager().getPlugin("Vault") != null) {
+            integrations.append("Vault ");
+        }
+        if (Bukkit.getPluginManager().getPlugin("LuckPerms") != null) {
+            integrations.append("LuckPerms ");
+        }
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            integrations.append("PlaceholderAPI ");
+        }
+        if (floodgateHook.available()) {
+            integrations.append("Floodgate ");
+        }
         PlaceholderHook.register(this, profileManager, checkRegistry);
         new MetricsHook(this).start();
+        Banner.step("Integrations loaded",
+                integrations.length() == 0 ? "none" : integrations.toString().trim());
 
-        // 9. API ---------------------------------------------------------------
+        // 10. API --------------------------------------------------------------
         GuardianAPI.register(this);
 
-        // 10. Tick task --------------------------------------------------------
+        // 11. Tick task --------------------------------------------------------
         schedulers.runSyncRepeating(this::tickProfiles, 1L, 1L);
+        Banner.step("Tick task started");
 
-        getLogger().info("Guardian enabled — " + checkRegistry.all().size()
-                + " checks registered, storage=" + violationStore.getClass().getSimpleName());
+        // ─── done ─────────────────────────────────────────────────────────
+        long elapsed = (System.nanoTime() - startNanos) / 1_000_000L;
+        Banner.blank();
+        Banner.rule();
+        Banner.blank();
+        Banner.ready("Guardian is online  ·  enabled in " + elapsed + "ms");
+        Banner.blank();
     }
 
     @Override
     public void onDisable() {
+        Banner.blank();
+        Banner.step("Shutting down Guardian");
+
         GuardianAPI.unregister();
 
         if (packetHook != null) {
             packetHook.stop();
+            Banner.step("PacketEvents unhooked");
         }
         if (alertManager != null) {
             alertManager.shutdown();
+            Banner.step("Alert system shut down");
         }
         if (violationStore != null) {
             violationStore.flush();
             violationStore.close();
+            Banner.step("Storage flushed and closed");
         }
         if (profileManager != null) {
             profileManager.online().forEach(profile -> checkRegistry.dispatchQuit(profile));
         }
-        getLogger().info("Guardian disabled.");
+        Banner.ready("Guardian disabled");
+        Banner.blank();
     }
 
     private void tickProfiles() {
@@ -187,12 +235,16 @@ public final class GuardianPlugin extends JavaPlugin implements GuardianAPI.Guar
 
     @Override
     public void reloadEverything() {
+        Banner.blank();
+        Banner.step("Reloading Guardian configuration");
         guardianConfig.load();
         messages.load();
         checkRegistry.reloadAll();
         alertManager.reload();
         punishmentManager.reload();
         floodgateHook.reload();
+        Banner.ready("Reload complete");
+        Banner.blank();
     }
 
     @Override
