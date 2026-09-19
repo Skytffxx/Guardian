@@ -4,25 +4,17 @@ import com.skyzzz.guardian.api.check.CheckRegistry;
 import com.skyzzz.guardian.api.player.ProfileManager;
 import com.skyzzz.guardian.api.violation.ViolationStore;
 
-/**
- * Static service locator. Core registers itself on enable; checks, add-ons and
- * integrations resolve services through here without a compile-time link to core.
- */
 public final class GuardianAPI {
 
-    /** Implemented by the core plugin. */
     public interface Guardian {
         ProfileManager profiles();
         CheckRegistry checks();
         ViolationStore violations();
 
-        /** Reloads config.yml + messages.yml and re-binds every check's settings. */
         void reloadEverything();
 
-        /** Runs {@code command} on the main thread (or the correct Folia region thread). */
         void runSync(Runnable task);
 
-        /** Runs {@code command} off-thread. */
         void runAsync(Runnable task);
     }
 
