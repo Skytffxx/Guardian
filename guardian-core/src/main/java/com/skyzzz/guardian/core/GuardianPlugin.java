@@ -146,6 +146,7 @@ public final class GuardianPlugin extends JavaPlugin implements GuardianAPI.Guar
             }
             profile.setAttribute("server-tps", currentTps());
             profile.setPing(player.getPing());
+            profile.setAttribute("health", player.getHealth());
             checkRegistry.dispatchTick(profile);
             profile.advanceTick();
         }

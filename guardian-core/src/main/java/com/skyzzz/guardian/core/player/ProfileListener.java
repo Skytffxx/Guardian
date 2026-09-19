@@ -6,10 +6,8 @@ import com.skyzzz.guardian.core.config.GuardianConfig;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
 import com.skyzzz.guardian.api.data.DamageData;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.EventHandler;
@@ -30,7 +28,6 @@ import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
-import org.bukkit.Material;
 
 import java.util.UUID;
 
@@ -132,10 +129,14 @@ public final class ProfileListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player attacker)) {
-              return;
+            return;
         }
         Entity victim = event.getEntity();
         if (victim == attacker) {
+            return;
+        }
+        // Only melee swings can crit — skip projectiles and AoE damage sources.
+        if (event.getCause() != org.bukkit.event.entity.EntityDamageEvent.DamageCause.ENTITY_ATTACK) {
             return;
         }
 
