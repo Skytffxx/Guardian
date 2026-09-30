@@ -10,11 +10,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Vehicle movement exploits (boat fly, minecart speed, horse speed).
- *
- * Compares the player's per-tick movement while riding against the maximum the ridden
- * vehicle type legally allows. Server-side vehicle position is fed by core, so this
- * is not trusting the client's own report.
+ * Vehicle exploits (boat fly, minecart and horse speed). Compares per-tick movement
+ * while riding against the maximum the vehicle legally allows, using the server-side
+ * vehicle position rather than the client's own report.
  */
 public final class VehicleCheck extends AbstractCheck {
 
@@ -43,8 +41,8 @@ public final class VehicleCheck extends AbstractCheck {
             return;
         }
 
-        double vx = number(profile, "vehicle-x", 0.0D);
-        double vz = number(profile, "vehicle-z", 0.0D);
+        double vx = attr(profile, "vehicle-x", 0.0D);
+        double vz = attr(profile, "vehicle-z", 0.0D);
 
         if (Double.isNaN(state.lastVehicleX)) {
             state.lastVehicleX = vx;
@@ -58,14 +56,12 @@ public final class VehicleCheck extends AbstractCheck {
         state.lastVehicleX = vx;
         state.lastVehicleZ = vz;
 
-        double maxSpeed = scaled(profile, "max-vehicle-speed", 0.9D);
-        if (horizontal > maxSpeed) {
+        if (horizontal > scaled(profile, "max-vehicle-speed", 0.9D)) {
             state.speedStreak++;
         } else {
             state.speedStreak = Math.max(0, state.speedStreak - 1);
         }
 
-        // Boat fly — vehicle rising while its natural state cannot.
         if (move.deltaY() > d("max-vehicle-rise", 0.05D)) {
             state.airStreak++;
         } else {
@@ -74,7 +70,7 @@ public final class VehicleCheck extends AbstractCheck {
 
         if (state.speedStreak >= i("speed-streak", 5)) {
             flag(profile, 2.0D, "vehicle speed %.4f exceeds %.4f (streak=%d)",
-                    horizontal, maxSpeed, state.speedStreak);
+                    horizontal, scaled(profile, "max-vehicle-speed", 0.9D), state.speedStreak);
             state.speedStreak = 0;
             return;
         }
@@ -86,7 +82,7 @@ public final class VehicleCheck extends AbstractCheck {
         }
     }
 
-    private double number(PlayerProfile profile, String key, double def) {
+    private double attr(PlayerProfile profile, String key, double def) {
         Object value = profile.attribute(key);
         return value instanceof Number n ? n.doubleValue() : def;
     }

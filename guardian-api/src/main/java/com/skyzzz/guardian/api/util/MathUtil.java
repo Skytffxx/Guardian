@@ -21,10 +21,7 @@ public final class MathUtil {
         return Math.sqrt(distanceSquaredToBox(px, py, pz, minX, minY, minZ, maxX, maxY, maxZ));
     }
 
-    /**
-     * Greatest common divisor of two doubles. Used by the aim check to detect
-     * rotation deltas that are all exact multiples of a fixed sensitivity step.
-     */
+    /** GCD of two doubles; the aim check uses it to spot fixed sensitivity steps. */
     public static double gcd(double a, double b) {
         a = Math.abs(a);
         b = Math.abs(b);

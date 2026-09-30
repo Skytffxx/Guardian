@@ -1,9 +1,8 @@
 package com.skyzzz.guardian.api.util;
 
-/**
- * Fixed-size numeric window with O(1) insert and O(n) aggregates. Used by the
- * rolling-window evaluation strategy: nothing flags on a single sample.
- */
+/** Fixed-size numeric window; O(1) insert, O(n) aggregates. */
+import java.util.Arrays;
+
 public final class RollingWindow {
 
     private final double[] values;
@@ -42,9 +41,7 @@ public final class RollingWindow {
         cursor = -1;
         size = 0;
         sum = 0.0D;
-        for (int idx = 0; idx < values.length; idx++) {
-            values[idx] = 0.0D;
-        }
+        Arrays.fill(values, 0.0D);
     }
 
     public double mean() {
@@ -64,29 +61,35 @@ public final class RollingWindow {
     }
 
     public double max() {
+        if (size == 0) {
+            return 0.0D;
+        }
         double max = Double.NEGATIVE_INFINITY;
         for (int idx = 0; idx < size; idx++) {
             max = Math.max(max, value(idx));
         }
-        return size == 0 ? 0.0D : max;
+        return max;
     }
 
     public double min() {
+        if (size == 0) {
+            return 0.0D;
+        }
         double min = Double.POSITIVE_INFINITY;
         for (int idx = 0; idx < size; idx++) {
             min = Math.min(min, value(idx));
         }
-        return size == 0 ? 0.0D : min;
+        return min;
     }
 
     public double standardDeviation() {
         if (size < 2) {
             return 0.0D;
         }
-        double mean = mean();
+        double avg = mean();
         double total = 0.0D;
         for (int idx = 0; idx < size; idx++) {
-            double diff = value(idx) - mean;
+            double diff = value(idx) - avg;
             total += diff * diff;
         }
         return Math.sqrt(total / (size - 1));

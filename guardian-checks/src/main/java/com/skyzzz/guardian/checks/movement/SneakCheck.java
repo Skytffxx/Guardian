@@ -10,15 +10,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Sneak / pose desync.
- *
- * The client reports its own sneak state, and the server tracks its own. A cheat can
- * claim "not sneaking" client-side to avoid the speed penalty while the server thinks
- * the player is crouching, or claim crouching while moving at full speed.
- *
- * Detection: the two states disagree for several ticks AND the player is moving at a
- * speed only achievable without the sneak modifier. Requires a streak because a
- * single-tick mismatch is normal at network boundaries.
+ * Pose desync: the client's sneak state disagrees with the server's while the player
+ * moves at a speed only reachable without the sneak modifier. Single-tick mismatches
+ * are normal at network boundaries, so a streak is required.
  */
 public final class SneakCheck extends AbstractCheck {
 
@@ -46,11 +40,9 @@ public final class SneakCheck extends AbstractCheck {
         boolean clientSneak = Boolean.TRUE.equals(profile.attribute("client-sneaking"));
         boolean serverSneak = Boolean.TRUE.equals(profile.attribute("server-sneaking"));
 
-        // Mismatch plus full-speed movement is the exploit; sneak mismatch on its own is noise.
         double speed = move.horizontalDistance();
-        double sneakMax = scaled(profile, "max-sneak-speed", 0.07D);
-
-        boolean exploit = clientSneak != serverSneak && speed > sneakMax;
+        boolean exploit = clientSneak != serverSneak
+                && speed > scaled(profile, "max-sneak-speed", 0.07D);
 
         if (exploit) {
             state.mismatchStreak++;
@@ -59,8 +51,7 @@ public final class SneakCheck extends AbstractCheck {
         }
 
         if (state.mismatchStreak >= i("required-flags", 8)) {
-            flag(profile, 1.5D,
-                    "sneak desync client=%s server=%s speed=%.3f streak=%d",
+            flag(profile, 1.5D, "sneak desync client=%s server=%s speed=%.3f streak=%d",
                     clientSneak, serverSneak, speed, state.mismatchStreak);
             state.mismatchStreak = 0;
         }

@@ -1,9 +1,6 @@
 package com.skyzzz.guardian.api.violation;
 
-/**
- * A single check's violation level with time-based decay. Punishments key off this
- * value, never off an individual flag.
- */
+/** One check's violation level, decaying over time. */
 public final class ViolationLevel {
 
     private static final double CEILING = 1000.0D;

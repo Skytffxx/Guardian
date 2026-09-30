@@ -1,9 +1,6 @@
 package com.skyzzz.guardian.api.data;
 
-/**
- * Immutable snapshot of one movement packet. All derived values are pre-computed
- * so checks stay allocation-free on the hot path.
- */
+/** Immutable snapshot of one movement packet; derived values are pre-computed for the hot path. */
 public record MoveData(
         double x, double y, double z,
         double lastX, double lastY, double lastZ,

@@ -5,14 +5,14 @@ import com.skyzzz.guardian.api.check.CheckCategory;
 import com.skyzzz.guardian.api.data.BlockBreakData;
 import com.skyzzz.guardian.api.player.PlayerProfile;
 
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 /**
- * Xray heuristic: ore-beeline pathing — mining straight to ores with minimal
- * surrounding-block excavation.
- *
- * THIS CHECK NEVER AUTO-PUNISHES. It raises VL that maps only to the "review"
- * punishment tier, which by default is a staff alert and nothing else. The signal is
- * inherently probabilistic (caving, branch mining and plain luck all look similar),
- * so the config ships it with a very high threshold and the punishment list empty.
+ * Xray heuristic: ore ratio in a mining window. The signal is inherently probabilistic
+ * — caving, branch mining and plain luck look alike — so the check ships disabled for
+ * punishment (see {@code review-only}) with a high threshold and an empty command list.
  */
 public final class XrayHeuristicCheck extends AbstractCheck {
 
@@ -23,7 +23,7 @@ public final class XrayHeuristicCheck extends AbstractCheck {
         long windowStartNanos;
     }
 
-    private final java.util.Map<java.util.UUID, State> states = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<UUID, State> states = new ConcurrentHashMap<>();
 
     public XrayHeuristicCheck() {
         super("xray", CheckCategory.WORLD);
@@ -34,7 +34,7 @@ public final class XrayHeuristicCheck extends AbstractCheck {
         if (!b("review-only", true)) {
             return;
         }
-        State state = states.computeIfAbsent(profile.uuid(), key -> new State());
+        State state = states.computeIfAbsent(profile.uuid(), k -> new State());
         long now = breakData.timestampNanos();
 
         if (state.windowStartNanos == 0L) {
@@ -48,12 +48,11 @@ public final class XrayHeuristicCheck extends AbstractCheck {
         }
 
         state.totalBreaks++;
-        if (isOre(breakData.material())) {
+        if (ore(breakData.material())) {
             state.oreBreaks++;
         }
 
-        int minimumBreaks = i("minimum-breaks", 60);
-        if (state.totalBreaks < minimumBreaks) {
+        if (state.totalBreaks < i("minimum-breaks", 60)) {
             return;
         }
 
@@ -69,7 +68,7 @@ public final class XrayHeuristicCheck extends AbstractCheck {
         }
     }
 
-    private boolean isOre(String material) {
+    private boolean ore(String material) {
         return material.endsWith("_ORE")
                 || material.equals("ANCIENT_DEBRIS")
                 || material.equals("DEEPSLATE_DIAMOND_ORE");

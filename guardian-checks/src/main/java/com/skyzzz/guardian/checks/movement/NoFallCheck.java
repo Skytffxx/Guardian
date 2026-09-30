@@ -10,9 +10,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * NoFall: the client claims onGround while the server knows it is airborne and has
- * accumulated real fall distance. Compares the client's claim against server truth
- * over a window so a single mis-synced tick never flags.
+ * The client claims onGround while the server sees it airborne with real fall distance
+ * banked. One mis-synced tick is normal, so a streak is required.
  */
 public final class NoFallCheck extends AbstractCheck {
 
@@ -30,18 +29,13 @@ public final class NoFallCheck extends AbstractCheck {
     public void onMove(PlayerProfile profile, MoveData move) {
         State state = states.computeIfAbsent(profile.uuid(), key -> new State());
 
-        if (Boolean.TRUE.equals(profile.attribute("in-liquid"))
-                || Boolean.TRUE.equals(profile.attribute("on-climbable"))
-                || Boolean.TRUE.equals(profile.attribute("elytra"))
-                || Boolean.TRUE.equals(profile.attribute("vehicle"))
-                || Boolean.TRUE.equals(profile.attribute("teleport"))) {
+        if (exempt(profile)) {
             state.consecutive = 0;
             return;
         }
 
-        Object fallDistanceAttr = profile.attribute("fall-distance");
-        double fallDistance = fallDistanceAttr instanceof Number number
-                ? number.doubleValue() : 0.0D;
+        Object fallAttr = profile.attribute("fall-distance");
+        double fallDistance = fallAttr instanceof Number n ? n.doubleValue() : 0.0D;
 
         boolean falseGroundClaim = move.onGround()
                 && !Boolean.TRUE.equals(profile.attribute("server-on-ground"))
@@ -54,11 +48,18 @@ public final class NoFallCheck extends AbstractCheck {
         }
 
         if (state.consecutive >= i("required-flags", 3)) {
-            flag(profile, 1.5D,
-                    "false onGround claim streak=%d fallDistance=%.2f deltaY=%.4f",
+            flag(profile, 1.5D, "false onGround claim streak=%d fallDistance=%.2f deltaY=%.4f",
                     state.consecutive, fallDistance, move.deltaY());
             state.consecutive = 0;
         }
+    }
+
+    private boolean exempt(PlayerProfile profile) {
+        return Boolean.TRUE.equals(profile.attribute("in-liquid"))
+                || Boolean.TRUE.equals(profile.attribute("on-climbable"))
+                || Boolean.TRUE.equals(profile.attribute("elytra"))
+                || Boolean.TRUE.equals(profile.attribute("vehicle"))
+                || Boolean.TRUE.equals(profile.attribute("teleport"));
     }
 
     @Override

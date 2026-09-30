@@ -8,9 +8,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
- * Folia-aware scheduler facade. Detects Folia at runtime and routes through the
- * region/global/async schedulers; falls back to the Bukkit scheduler elsewhere.
- * Reflection keeps the class compiling against plain Paper.
+ * Folia-aware scheduler facade: detects Folia and routes through the global/async
+ * schedulers, otherwise uses the Bukkit scheduler. Reflection keeps this compiling
+ * against plain Paper.
  */
 public final class Schedulers {
 
@@ -125,7 +125,6 @@ public final class Schedulers {
                     Consumer.class, long.class, long.class);
             asyncRun = async.getMethod("runNow", Plugin.class, Consumer.class);
 
-            // Silence unused warnings for the instances; reflective invocation needs the holder.
             assert globalInstance != null && asyncInstance != null;
         } catch (Throwable throwable) {
             plugin.getLogger().warning("Folia detected but scheduler init failed; "
@@ -133,7 +132,7 @@ public final class Schedulers {
         }
     }
 
-    /** Kept for API symmetry — TimeUnit import used by callers that schedule async delays. */
+    /** Ticks to milliseconds. */
     public static long toMillis(long ticks) {
         return TimeUnit.MILLISECONDS.convert(ticks * 50L, TimeUnit.MILLISECONDS);
     }

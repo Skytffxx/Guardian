@@ -29,7 +29,7 @@ public final class GuardianProfileManager implements ProfileManager {
         this.floodgate = floodgate;
     }
 
-    /** Creates the profile if absent. Safe to call from any thread. */
+    /** Creates the profile if absent. Callable from any thread. */
     public GuardianProfile getOrCreate(Player player) {
         return profiles.computeIfAbsent(player.getUniqueId(), uuid -> {
             GuardianProfile profile = new GuardianProfile(plugin, uuid, player.getName(),
@@ -61,7 +61,7 @@ public final class GuardianProfileManager implements ProfileManager {
         profiles.remove(uuid);
     }
 
-    /** Re-resolves platform (and Bedrock scale) for an online player, e.g. on plugin reload. */
+    /** Re-resolves platform and Bedrock scale, e.g. after a reload. */
     public void refreshPlatform(Player player) {
         GuardianProfile profile = profiles.get(player.getUniqueId());
         if (profile == null) {
@@ -76,8 +76,7 @@ public final class GuardianProfileManager implements ProfileManager {
 
     @Override
     public void tickAll() {
-        // Retained for API completeness; core's repeating task drives ticks so that
-        // TPS/ping refresh happens in the same pass.
+        // No-op: core's repeating task drives ticks so TPS/ping refresh in the same pass.
     }
 
     @Override

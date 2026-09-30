@@ -1,38 +1,31 @@
 package com.skyzzz.guardian.core.integration;
 
 import com.skyzzz.guardian.core.GuardianPlugin;
-import org.bukkit.Bukkit;
 
 import java.lang.reflect.Method;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Detects Bedrock players through the Geyser/Floodgate API without a hard dependency.
- * When Floodgate is absent, everyone is treated as Java — which is correct, because
- * without Geyser there are no Bedrock players.
+ * With neither plugin present there are no Bedrock players, so everyone is Java.
  */
 public final class FloodgateHook {
 
-    /** Cache TTL: re-check at most this often per player (Floodgate calls are reflective). */
+    /** Floodgate lookups are reflective, so results are cached briefly. */
     private static final long CACHE_MILLIS = 30_000L;
 
+    private record Cached(boolean bedrock, long checkedAt) {
+    }
+
     private final GuardianPlugin plugin;
+    private final Map<UUID, Cached> cache = new ConcurrentHashMap<>();
+
     private Object floodgateApi;
     private Method isFloodgatePlayer;
     private boolean available;
     private boolean geyserStandalone;
-    private final java.util.Map<java.util.UUID, CachedResult> cache =
-            new java.util.concurrent.ConcurrentHashMap<>();
-
-    private static final class CachedResult {
-        final boolean bedrock;
-        final long checkedAt;
-
-        CachedResult(boolean bedrock, long checkedAt) {
-            this.bedrock = bedrock;
-            this.checkedAt = checkedAt;
-        }
-    }
 
     public FloodgateHook(GuardianPlugin plugin) {
         this.plugin = plugin;
@@ -58,10 +51,10 @@ public final class FloodgateHook {
             available = true;
             return;
         } catch (Throwable ignored) {
-            // fall through to Geyser standalone detection
+            // Fall through to the Geyser standalone check below.
         }
-        // Geyser-Spigot without Floodgate: bedrock players join via the Geyser connection
-        // list rather than FloodgateApi. Detect reflectively so there is no hard dep.
+        // Geyser-Spigot without Floodgate has no FloodgateApi, so Bedrock players are
+        // resolved from the Geyser connection list instead.
         try {
             Class.forName("org.geysermc.geyser.api.GeyserApi");
             geyserStandalone = true;
@@ -77,12 +70,12 @@ public final class FloodgateHook {
             return false;
         }
         long now = System.currentTimeMillis();
-        CachedResult cached = cache.get(uuid);
-        if (cached != null && now - cached.checkedAt < CACHE_MILLIS) {
-            return cached.bedrock;
+        Cached cached = cache.get(uuid);
+        if (cached != null && now - cached.checkedAt() < CACHE_MILLIS) {
+            return cached.bedrock();
         }
         boolean result = resolveBedrock(uuid);
-        cache.put(uuid, new CachedResult(result, now));
+        cache.put(uuid, new Cached(result, now));
         return result;
     }
 
@@ -109,7 +102,7 @@ public final class FloodgateHook {
         return false;
     }
 
-    /** Drop a cached entry on quit so the map cannot grow unboundedly. */
+    /** Drops the cache entry on quit so the map cannot grow unboundedly. */
     public void invalidate(UUID uuid) {
         cache.remove(uuid);
     }

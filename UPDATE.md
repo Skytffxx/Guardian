@@ -4,6 +4,22 @@ All notable changes to the plugin. Newest first.
 
 ---
 
+## v1.0.2
+
+Codebase-wide senior-style refactor across **72 Java files** (+538 / −872 lines, mostly removed comments). No behavior changes, no config changes, no dependency changes.
+
+- **Readable internals** — removed decorative banners, section comments, "Step N" walkthroughs, TODOs, and other generated-looking noise across all three modules.
+- **Shorter Javadoc** — kept only non-obvious contracts (threading rules, packet edge cases, tuning rationale); deleted restatements on trivial getters/setters and private helpers.
+- **Consistent style** — early returns and guard clauses instead of nesting, short local names in small scopes, constants for repeated config keys/numbers, plain loops over long stream chains.
+- **Small cleanups** — fully-qualified type names replaced with imports, `final` dropped from locals/parameters, unused imports/variables/methods removed, blank-line noise and message wording tightened.
+- **Same build** — `mvn clean package` green, same 31 checks, same `Guardian-1.0.2.jar` artifact layout.
+
+### Upgrade notes
+- Version is now `1.0.2`; deploy artifact is `Guardian-1.0.2.jar`.
+- No config migration needed — no keys were added, removed, or re-defaulted.
+
+---
+
 ## v1.0.1 — 2026-09-19
 
 ### Fixed

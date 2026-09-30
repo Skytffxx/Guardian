@@ -10,14 +10,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Health regeneration anomaly.
- *
- * Vanilla regen: 1 HP every 4 seconds (80 ticks) with full hunger, halved per
- * Regeneration level (level I = 50 ticks, level II = 25, etc). Health that climbs
- * faster than the effect allows over a sustained window is suspicious.
- *
- * A single fast heal is exempt — custom plugins, admins with /heal, world change
- * damage absorption. Requires the rate to stay elevated across a full rolling window.
+ * Regen cadence. Vanilla heals 1 HP every 80 ticks at full hunger, halved per
+ * Regeneration level, so a window that sustains better than that is suspicious. One
+ * fast heal is exempt; /heal and custom plugins do that legitimately.
  */
 public final class RegenCheck extends AbstractCheck {
 
@@ -60,12 +55,10 @@ public final class RegenCheck extends AbstractCheck {
         }
 
         if (health > state.lastHealth) {
-            long currentTick = profile.tick();
             if (state.lastHealTick != Long.MIN_VALUE) {
-                long gap = currentTick - state.lastHealTick;
-                state.intervalWindow.add(gap);
+                state.intervalWindow.add(profile.tick() - state.lastHealTick);
             }
-            state.lastHealTick = currentTick;
+            state.lastHealTick = profile.tick();
         }
         state.lastHealth = health;
 
@@ -73,15 +66,14 @@ public final class RegenCheck extends AbstractCheck {
             return;
         }
 
-        // Vanilla baseline: regen I heals 1 HP every 50 ticks minimum.
-        // Anything sustaining below that cadence for a full window is suspicious.
-        double mean = state.intervalWindow.mean();
+        // Regen I heals 1 HP every 50 ticks at best.
+        double avg = state.intervalWindow.mean();
         double minimum = scaled(profile, "minimum-heal-interval-ticks", 20.0D);
 
-        if (mean < minimum) {
+        if (avg < minimum) {
             flag(profile, 1.5D,
                     "regen cadence %.1f ticks/HP (minimum %.1f) over %d heals",
-                    mean, minimum, state.intervalWindow.size());
+                    avg, minimum, state.intervalWindow.size());
             state.intervalWindow.clear();
         }
     }

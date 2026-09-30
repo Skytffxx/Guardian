@@ -11,11 +11,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Live staff feed. Chat alerts go to permission holders; Discord alerts go through a
- * plain HTTP webhook so no bot framework is required.
+ * Live staff feed: chat alerts to permission holders, plus an optional Discord webhook
+ * so no bot framework is needed.
  */
 public final class AlertManager {
 
@@ -24,7 +25,7 @@ public final class AlertManager {
     private final GuardianPlugin plugin;
     private final GuardianConfig config;
     private final Messages messages;
-    private final Set<java.util.UUID> alertToggles = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> alertToggles = ConcurrentHashMap.newKeySet();
 
     private DiscordWebhook webhook;
 
@@ -54,7 +55,7 @@ public final class AlertManager {
         }
     }
 
-    public boolean toggle(java.util.UUID uuid) {
+    public boolean toggle(UUID uuid) {
         if (alertToggles.contains(uuid)) {
             alertToggles.remove(uuid);
             return false;
@@ -63,7 +64,7 @@ public final class AlertManager {
         return true;
     }
 
-    public boolean hasAlerts(java.util.UUID uuid) {
+    public boolean hasAlerts(UUID uuid) {
         return alertToggles.contains(uuid);
     }
 

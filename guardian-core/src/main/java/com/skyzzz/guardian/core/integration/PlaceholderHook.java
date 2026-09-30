@@ -7,12 +7,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 
 /**
- * Exposes Guardian state to PlaceholderAPI:
- *   %guardian_vl_total%     total VL across all checks
- *   %guardian_vl_<check>%   VL for a single check
- *   %guardian_platform%     JAVA or BEDROCK
- *   %guardian_checks%       number of registered checks
- *   %guardian_enabled_<check>%  true/false
+ * Placeholders: {@code %guardian_vl_total%}, {@code %guardian_vl_<check>%},
+ * {@code %guardian_platform%}, {@code %guardian_checks%},
+ * {@code %guardian_enabled_<check>%}.
  */
 public final class PlaceholderHook {
 
@@ -27,7 +24,7 @@ public final class PlaceholderHook {
         try {
             new Expansion(plugin, profiles, registry).register();
         } catch (Throwable throwable) {
-            plugin.getLogger().warning("PlaceholderAPI expansion failed to register: "
+            plugin.getLogger().warning("PlaceholderAPI expansion failed: "
                     + throwable.getMessage());
         }
     }
@@ -89,7 +86,8 @@ public final class PlaceholderHook {
             }
             if (params.toLowerCase().startsWith("enabled_")) {
                 String checkName = params.substring(8);
-                return registry.get(checkName).map(check -> String.valueOf(check.isEnabled())).orElse("unknown");
+                return registry.get(checkName).map(check -> String.valueOf(check.isEnabled()))
+                        .orElse("unknown");
             }
             return null;
         }

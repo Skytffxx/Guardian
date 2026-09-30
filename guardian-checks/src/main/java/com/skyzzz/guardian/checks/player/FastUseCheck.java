@@ -10,11 +10,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * FastUse: completing an eat/drink faster than the vanilla use duration.
- *
- * Core feeds us a packet named {@code USE_ITEM_COMPLETED} with the use duration in
- * {@code profile.attribute("last-use-duration-ms")}. We compare against the item's
- * legal minimum, which core resolves from the held item type.
+ * FastUse: finishing an eat or drink faster than the vanilla use duration. Core writes
+ * the measured duration to {@code last-use-duration-ms} and the expected duration comes
+ * from the item via config.
  */
 public final class FastUseCheck extends AbstractCheck {
 
@@ -41,9 +39,8 @@ public final class FastUseCheck extends AbstractCheck {
         State state = states.computeIfAbsent(profile.uuid(), key -> new State());
         double durationMs = durationNumber.doubleValue();
         double expectedMs = scaled(profile, "expected-duration-ms", 1610.0D);
-        double tolerance = d("tolerance-ms", 120.0D);
 
-        if (durationMs < expectedMs - tolerance) {
+        if (durationMs < expectedMs - d("tolerance-ms", 120.0D)) {
             state.streak++;
         } else {
             state.streak = Math.max(0, state.streak - 1);

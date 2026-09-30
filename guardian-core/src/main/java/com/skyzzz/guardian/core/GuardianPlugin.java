@@ -216,7 +216,6 @@ public final class GuardianPlugin extends JavaPlugin implements GuardianAPI.Guar
         };
     }
 
-    // ---- GuardianAPI.Guardian ------------------------------------------------
 
     @Override
     public ProfileManager profiles() {
@@ -262,7 +261,6 @@ public final class GuardianPlugin extends JavaPlugin implements GuardianAPI.Guar
         schedulers.runAsync(task);
     }
 
-    // ---- accessors -----------------------------------------------------------
 
     public GuardianConfig guardianConfig() {
         return guardianConfig;

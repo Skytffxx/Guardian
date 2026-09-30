@@ -58,7 +58,6 @@ public final class ProfileListener implements Listener {
         this.config = plugin.guardianConfig();
     }
 
-    // ---- lifecycle -------------------------------------------------------
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onItemHeld(PlayerItemHeldEvent event) {
@@ -94,7 +93,6 @@ public final class ProfileListener implements Listener {
         }
     }
 
-    // ---- world interaction feeds (scaffold/fastplace/fastbreak/nuker/...) -----
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
@@ -309,7 +307,6 @@ public final class ProfileListener implements Listener {
      return Math.abs(ratio - 1.5D) < 0.15D;
     }
 
-    // ---- gamemode / state toggles ---------------------------------------
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onGameModeChange(PlayerGameModeChangeEvent event) {
@@ -394,7 +391,6 @@ public final class ProfileListener implements Listener {
         }
     }
 
-    // ---- per-move state --------------------------------------------------
 
     // Throttle: full attribute scans run at most this often per player.
     // PlayerMoveEvent fires several times per tick; the checks only need freshness
@@ -441,7 +437,6 @@ public final class ProfileListener implements Listener {
         profile.setAttribute("server-on-ground", player.isOnGround());
         profile.setAttribute("vehicle", player.isInsideVehicle() ? Boolean.TRUE : null);
 
-        // --- additional feeds for vehicle / phase / regen / fastbreak ---
         // Skip the vehicle Location lookup when the player is not riding: getLocation()
         // on a vehicle entity is a world access and this handler is the hottest in the plugin.
         if (player.isInsideVehicle()) {
@@ -492,7 +487,6 @@ public final class ProfileListener implements Listener {
         profile.setAttribute("tool-efficiency", digSpeedLevel);
         profile.setAttribute("tool-type", tool.getType().name());
     }
-    // ---- attribute feeds -------------------------------------------------
 
     private void updateBlockAttributes(GuardianProfile profile, Player player) {
         org.bukkit.Location location = player.getLocation();
@@ -540,7 +534,6 @@ public final class ProfileListener implements Listener {
         profile.setAttribute("depth-strider", depthStrider ? Boolean.TRUE : null);
     }
 
-    // ---- helpers ---------------------------------------------------------
 
     private void applyGamemode(GuardianProfile profile, String gameModeName) {
         boolean creative = "CREATIVE".equalsIgnoreCase(gameModeName);

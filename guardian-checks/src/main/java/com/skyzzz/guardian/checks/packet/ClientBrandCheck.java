@@ -10,9 +10,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Client brand spoofing: the brand string changes mid-session, is missing entirely,
- * or matches a known cheat-client signature. Missing brand alone is not a flag —
- * only a mid-session change or a signature match is.
+ * Client brand spoofing: brand changes mid-session, or a known cheat-client signature.
+ * A missing brand is never a flag on its own.
  */
 public final class ClientBrandCheck extends AbstractCheck {
 

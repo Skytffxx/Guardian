@@ -10,13 +10,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Phase / NoClip.
- *
- * Detects a player whose bounding volume intersects a solid block for more than a
- * couple of ticks. Legitimate cases (block placed on the player, portal glitch,
- * spectator, creative) are exempt. Requires a streak because one tick of "inside
- * a solid block" is a common desync when a block updates on the same tick as the
- * player's move.
+ * NoClip: the player's volume sits inside a solid block. A block update on the same
+ * tick as a move overlaps legitimately, so a streak is required.
  */
 public final class PhaseCheck extends AbstractCheck {
 
@@ -51,10 +46,8 @@ public final class PhaseCheck extends AbstractCheck {
             state.phaseStreak = Math.max(0, state.phaseStreak - 2);
         }
 
-        int required = i("required-flags", 3);
-        if (state.phaseStreak >= required) {
-            flag(profile, 3.0D,
-                    "inside solid block streak=%d feet=%s head=%s at %.1f/%.1f/%.1f",
+        if (state.phaseStreak >= i("required-flags", 3)) {
+            flag(profile, 3.0D, "inside solid block streak=%d feet=%s head=%s at %.1f/%.1f/%.1f",
                     state.phaseStreak, feetInSolid, headInSolid, move.x(), move.y(), move.z());
             state.phaseStreak = 0;
         }

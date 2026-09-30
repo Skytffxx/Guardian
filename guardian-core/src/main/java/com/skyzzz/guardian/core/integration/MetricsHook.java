@@ -4,10 +4,7 @@ import com.skyzzz.guardian.core.GuardianPlugin;
 import org.bstats.bukkit.Metrics;
 import org.bstats.charts.SimplePie;
 
-/**
- * Anonymous usage metrics. bStats itself honours the global opt-out in
- * plugins/bStats/config.yml, so no extra work is needed here.
- */
+/** Anonymous usage metrics. bStats honours the global opt-out in its own config. */
 public final class MetricsHook {
 
     private static final int PLUGIN_ID = 00000; // replace with the assigned bStats id

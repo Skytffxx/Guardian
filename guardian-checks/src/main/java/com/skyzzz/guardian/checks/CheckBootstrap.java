@@ -36,8 +36,7 @@ import com.skyzzz.guardian.checks.world.XrayHeuristicCheck;
 import java.util.List;
 
 /**
- * Single place that knows the full check list. Core calls {@link #create()} once at
- * startup; nothing else in the codebase references concrete check classes.
+ * Knows every check. Core calls {@link #create()} once at startup.
  */
 public final class CheckBootstrap {
 
@@ -46,7 +45,6 @@ public final class CheckBootstrap {
 
     public static List<Check> create() {
         return List.of(
-                // Combat
                 new KillauraCheck(),
                 new ReachCheck(),
                 new AutoclickerCheck(),
@@ -54,7 +52,6 @@ public final class CheckBootstrap {
                 new VelocityCheck(),
                 new FakeCriticalsCheck(),
 
-                // Movement
                 new SpeedCheck(),
                 new FlyCheck(),
                 new NoFallCheck(),
@@ -66,7 +63,6 @@ public final class CheckBootstrap {
                 new ElytraCheck(),
                 new VehicleCheck(),
 
-                // World
                 new ScaffoldCheck(),
                 new FastPlaceCheck(),
                 new FastBreakCheck(),
@@ -75,13 +71,11 @@ public final class CheckBootstrap {
                 new BlockReachCheck(),
                 new XrayHeuristicCheck(),
 
-                // Player
                 new FastUseCheck(),
                 new AutoRespawnCheck(),
                 new RegenCheck(),
                 new InventoryCheck(),
 
-                // Packet
                 new PacketSanityCheck(),
                 new FloodCheck(),
                 new ClientBrandCheck(),

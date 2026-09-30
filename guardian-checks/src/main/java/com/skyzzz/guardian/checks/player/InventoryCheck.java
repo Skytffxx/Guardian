@@ -11,18 +11,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Inventory click-sequence exploits.
- *
- * Now that core feeds {@code last-click-slot} and {@code last-click-window-id} from
- * the raw click packet, this check has real slot data to work with. Two signals:
- *
- *   1. Click rate — sustained above the human ceiling.
- *   2. Same-slot spam — clicking the same slot repeatedly at machine cadence,
- *      which is what inventory-move macros produce (the client's own click queue
- *      can only hold a handful of pending clicks, so a sustained same-slot burst
- *      cannot be legitimate input).
- *
- * Both must agree before VL moves. Either alone is common.
+ * Inventory click exploits. Two signals, both required: sustained click rate above the
+ * human ceiling, and repeated clicks on the same slot. The client's own click queue is
+ * short, so a long same-slot burst at machine cadence cannot be real input.
  */
 public final class InventoryCheck extends AbstractCheck {
 
@@ -55,7 +46,6 @@ public final class InventoryCheck extends AbstractCheck {
 
         long now = packet.timestampNanos();
 
-        // --- signal 1: click rate ---
         if (state.lastClickNanos != 0L) {
             double intervalMs = (now - state.lastClickNanos) / 1_000_000.0D;
             if (intervalMs > 0.0D && intervalMs < d("ignore-above-ms", 500.0D)) {
@@ -64,7 +54,6 @@ public final class InventoryCheck extends AbstractCheck {
         }
         state.lastClickNanos = now;
 
-        // --- signal 2: same-slot streak ---
         Object slotAttr = profile.attribute("last-click-slot");
         Object windowAttr = profile.attribute("last-click-window-id");
         int slot = slotAttr instanceof Number n ? n.intValue() : Integer.MIN_VALUE;
@@ -79,7 +68,6 @@ public final class InventoryCheck extends AbstractCheck {
         state.lastSlot = slot;
         state.lastWindowId = windowId;
 
-        // --- evaluate ---
         if (!state.clickRatePerSecond.isFull()) {
             return;
         }

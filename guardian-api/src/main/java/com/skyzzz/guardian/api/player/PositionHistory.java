@@ -1,8 +1,10 @@
 package com.skyzzz.guardian.api.player;
 
+import java.util.Arrays;
+
 /**
- * Fixed-capacity ring buffer of the most recent positions. Not thread-safe by design:
- * all writes happen on the player's tick thread.
+ * Ring buffer of the most recent positions. Not thread-safe: every write happens on
+ * the player's tick thread.
  */
 public final class PositionHistory {
 
@@ -25,7 +27,7 @@ public final class PositionHistory {
         }
     }
 
-    /** {@code back == 0} is the newest sample. Returns null when out of range. */
+    /** {@code back == 0} is the newest sample; null when out of range. */
     public PositionSample get(int back) {
         if (back < 0 || back >= size) {
             return null;
@@ -53,14 +55,12 @@ public final class PositionHistory {
     public void clear() {
         cursor = -1;
         size = 0;
-        for (int idx = 0; idx < buffer.length; idx++) {
-            buffer[idx] = null;
-        }
+        Arrays.fill(buffer, null);
     }
 
     /**
-     * Mean horizontal blocks/tick over the last {@code ticks} samples.
-     * Returns 0 when there is not enough history.
+     * Mean horizontal blocks/tick over the last {@code ticks} samples, or 0 when there
+     * is not enough history.
      */
     public double averageHorizontalSpeed(int ticks) {
         if (size < ticks + 1 || ticks <= 0) {
@@ -77,7 +77,7 @@ public final class PositionHistory {
         return total / ticks;
     }
 
-    /** Mean vertical delta/tick over the last {@code ticks} samples (signed). */
+    /** Signed mean vertical delta/tick over the last {@code ticks} samples. */
     public double averageVerticalSpeed(int ticks) {
         if (size < ticks + 1 || ticks <= 0) {
             return 0.0D;

@@ -10,12 +10,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Gravity bypass / hover. Two independent signals:
- *   - sustained air time with no meaningful downward acceleration,
- *   - a "hover" plateau where |deltaY| stays near zero while airborne.
- *
- * Both are suppressed in liquids, on ladders, while levitating, gliding, riding,
- * or while the server is lagging.
+ * Gravity bypass and hover: sustained air time with no downward acceleration, or a
+ * plateau where deltaY stays near zero while airborne. Both are suppressed in liquids,
+ * on ladders, while levitating, gliding, riding, or while the server is lagging.
  */
 public final class FlyCheck extends AbstractCheck {
 
@@ -36,17 +33,13 @@ public final class FlyCheck extends AbstractCheck {
     public void onMove(PlayerProfile profile, MoveData move) {
         State state = states.computeIfAbsent(profile.uuid(), key -> new State());
 
-        if (isExemptEnvironment(profile)) {
-            state.airTicks = 0;
-            state.hoverTicks = 0;
-            state.gravityViolations = 0;
+        if (exempt(profile)) {
+            clearAirborne(state);
             return;
         }
 
         if (move.onGround()) {
-            state.airTicks = 0;
-            state.hoverTicks = 0;
-            state.gravityViolations = 0;
+            clearAirborne(state);
             state.lastDeltaY = 0.0D;
             reward(profile, d("clean-reward", 0.1D));
             return;
@@ -55,14 +48,12 @@ public final class FlyCheck extends AbstractCheck {
         state.airTicks++;
         double deltaY = move.deltaY();
 
-        // Terminal-ish downward motion resets the hover counter.
         if (deltaY < -d("falling-threshold", 0.12D)) {
             state.hoverTicks = 0;
         } else if (state.airTicks > i("minimum-air-ticks", 8)) {
             state.hoverTicks++;
         }
 
-        // Gravity signal: airborne but not accelerating downward at all.
         if (state.airTicks > i("gravity-grace-ticks", 6)
                 && deltaY >= -d("gravity-minimum-fall", 0.02D)
                 && Math.abs(deltaY - state.lastDeltaY) < d("gravity-max-delta-change", 0.005D)) {
@@ -87,7 +78,13 @@ public final class FlyCheck extends AbstractCheck {
         }
     }
 
-    private boolean isExemptEnvironment(PlayerProfile profile) {
+    private void clearAirborne(State state) {
+        state.airTicks = 0;
+        state.hoverTicks = 0;
+        state.gravityViolations = 0;
+    }
+
+    private boolean exempt(PlayerProfile profile) {
         return Boolean.TRUE.equals(profile.attribute("in-liquid"))
                 || Boolean.TRUE.equals(profile.attribute("on-climbable"))
                 || Boolean.TRUE.equals(profile.attribute("levitating"))

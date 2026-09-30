@@ -1,9 +1,6 @@
 package com.skyzzz.guardian.api.player;
 
-/**
- * Rolling click history. Stores inter-click intervals (ms) for the last N clicks,
- * which is what autoclicker statistics actually need.
- */
+/** Rolling inter-click intervals in ms for the last N clicks. */
 public final class ClickHistory {
 
     private final long[] intervals;
@@ -45,7 +42,7 @@ public final class ClickHistory {
         lastClickNanos = 0L;
     }
 
-    /** Newest-first interval at {@code back}, or -1 when out of range. */
+    /** Newest-first interval at {@code back}; -1 when out of range. */
     public long interval(int back) {
         if (back < 0 || back >= size) {
             return -1L;
@@ -69,22 +66,22 @@ public final class ClickHistory {
         if (size < 2) {
             return 0.0D;
         }
-        double mean = mean();
+        double avg = mean();
         double sum = 0.0D;
         for (int idx = 0; idx < size; idx++) {
-            double diff = interval(idx) - mean;
+            double diff = interval(idx) - avg;
             sum += diff * diff;
         }
         return Math.sqrt(sum / (size - 1));
     }
 
-    /** Coefficient of variation: stdev / mean. Humans sit well above 0; macroers near 0. */
+    /** stdev / mean. Humans sit well above zero, macroers near zero. */
     public double coefficientOfVariation() {
         double mean = mean();
         return mean <= 0.0D ? 0.0D : standardDeviation() / mean;
     }
 
-    /** Counts how many intervals are within {@code toleranceMs} of another interval. */
+    /** Intervals that sit within {@code toleranceMs} of some other interval. */
     public int duplicateIntervalCount(long toleranceMs) {
         int duplicates = 0;
         for (int a = 0; a < size; a++) {

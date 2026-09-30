@@ -11,16 +11,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Ping / KeepAlive spoofing.
- *
- * Core stores the outbound keep-alive id and send timestamp on the profile. This
- * check validates the client's response:
- *   - the echoed id must match the last sent id,
- *   - the round-trip time must be plausible for the player's declared ping,
- *   - responses must not be duplicated.
- *
- * A single out-of-order response is normal on lossy networks; require a small window
- * of wrong responses before flagging.
+ * KeepAlive spoofing. Core stores the outbound id and send time on the profile; this
+ * validates that the echoed id matches, the round trip is plausible for the declared
+ * ping, and no response is replayed. A single out-of-order response is normal on lossy
+ * links, so a short streak is required.
  */
 public final class PingSpoofCheck extends AbstractCheck {
 
@@ -74,27 +68,24 @@ public final class PingSpoofCheck extends AbstractCheck {
             return;
         }
 
-        // Duplicate response for the same id — the client replayed a stale packet.
+        // Duplicate response for an id already answered.
         if (id == state.lastResponseId) {
             flag(profile, 2.0D, "duplicate keepalive response id=%d", id);
             return;
         }
 
-        // Id mismatch — the client responded to a keep-alive we never sent.
+        // Response to a keep-alive we never sent.
         if (state.lastSentId != Long.MIN_VALUE && id != state.lastSentId) {
             state.wrongIdStreak++;
             if (state.wrongIdStreak >= i("wrong-id-streak", 3)) {
-                flag(profile, 2.0D,
-                        "keepalive id mismatch sent=%d received=%d (streak=%d)",
+                flag(profile, 2.0D, "keepalive id mismatch sent=%d received=%d (streak=%d)",
                         state.lastSentId, id, state.wrongIdStreak);
                 state.wrongIdStreak = 0;
             }
             return;
-        } else {
-            state.wrongIdStreak = Math.max(0, state.wrongIdStreak - 1);
         }
+        state.wrongIdStreak = Math.max(0, state.wrongIdStreak - 1);
 
-        // Round-trip sanity check.
         if (state.lastSentNanos != 0L) {
             double rttMs = (responseNanos - state.lastSentNanos) / 1_000_000.0D;
             if (rttMs >= 0.0D && rttMs < 10_000.0D) {
@@ -103,11 +94,10 @@ public final class PingSpoofCheck extends AbstractCheck {
                 if (state.roundTripMs.isFull()) {
                     double meanRtt = state.roundTripMs.mean();
                     int declaredPing = profile.ping();
-                    // If the server-measured RTT is drastically lower than the client's
-                    // own declared ping, the client is overstating its latency.
+                    // Server-measured RTT far below the declared ping means the client
+                    // is overstating its latency.
                     if (declaredPing > 0 && meanRtt * d("ping-mismatch-factor", 3.0D) < declaredPing) {
-                        flag(profile, 1.0D,
-                                "keepalive rtt=%.1fms vs declared ping=%dms",
+                        flag(profile, 1.0D, "keepalive rtt=%.1fms vs declared ping=%dms",
                                 meanRtt, declaredPing);
                         state.roundTripMs.clear();
                     }

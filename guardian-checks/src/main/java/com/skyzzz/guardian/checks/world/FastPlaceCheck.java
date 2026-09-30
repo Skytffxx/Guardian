@@ -10,9 +10,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * FastPlace / FastBreak at the packet level: sustained placement intervals below the
- * vanilla client tick floor. Requires a streak because a single fast place is normal
- * when two placements land in the same tick after a lag catch-up.
+ * Placement intervals below the vanilla client tick floor. A streak is required because
+ * two placements in the same tick are normal after a lag catch-up.
  */
 public final class FastPlaceCheck extends AbstractCheck {
 
@@ -29,7 +28,7 @@ public final class FastPlaceCheck extends AbstractCheck {
 
     @Override
     public void onBlockPlace(PlayerProfile profile, BlockPlaceData place) {
-        State state = states.computeIfAbsent(profile.uuid(), key -> new State());
+        State state = states.computeIfAbsent(profile.uuid(), k -> new State());
 
         if (state.lastPlaceNanos == 0L) {
             state.lastPlaceNanos = place.timestampNanos();
@@ -51,7 +50,8 @@ public final class FastPlaceCheck extends AbstractCheck {
             state.streak = Math.max(0, state.streak - 1);
         }
 
-        if (state.streak >= i("required-flags", 5)) {
+        int required = i("required-flags", 5);
+        if (state.streak >= required) {
             flag(profile, 1.0D, "interval=%.2fms minimum=%.2fms streak=%d",
                     intervalMs, minimum, state.streak);
             state.streak = 0;

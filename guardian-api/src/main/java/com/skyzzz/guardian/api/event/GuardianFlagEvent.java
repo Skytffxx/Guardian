@@ -3,10 +3,7 @@ package com.skyzzz.guardian.api.event;
 import com.skyzzz.guardian.api.check.Check;
 import com.skyzzz.guardian.api.player.PlayerProfile;
 
-/**
- * Framework-agnostic flag event. Core mirrors it into a Bukkit event when a
- * listener needs to cancel or annotate it.
- */
+/** One flag, carrying the violation level it produced. */
 public final class GuardianFlagEvent {
 
     private final PlayerProfile profile;

@@ -3,8 +3,8 @@ package com.skyzzz.guardian.api.check;
 import java.util.List;
 
 /**
- * Read-only view over the {@code checks.<category>.<check>} config section.
- * Core supplies a Bukkit-backed implementation; the API never sees Bukkit.
+ * Read-only view over the {@code checks.<category>.<check>} config section, supplied by
+ * core so check code never touches Bukkit.
  */
 public interface CheckSettings {
 

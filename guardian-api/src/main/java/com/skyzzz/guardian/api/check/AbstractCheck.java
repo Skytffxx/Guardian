@@ -2,11 +2,11 @@ package com.skyzzz.guardian.api.check;
 
 import com.skyzzz.guardian.api.player.PlayerProfile;
 
-/**
- * Base class giving checks config access, weighted flagging and the Bedrock
- * threshold-scale shortcut. Checks extend this; nothing else should.
- */
+/** Base for all checks. */
 public abstract class AbstractCheck implements Check {
+
+    private static final String VL_WEIGHT = "vl-weight";
+    private static final double DEFAULT_VL_WEIGHT = 1.0D;
 
     private final String name;
     private final CheckCategory category;
@@ -51,8 +51,6 @@ public abstract class AbstractCheck implements Check {
         this.enabled = enabled;
     }
 
-    // ---- config shortcuts ------------------------------------------------
-
     protected double d(String key, double def) {
         return settings == null ? def : settings.getDouble(key, def);
     }
@@ -69,24 +67,20 @@ public abstract class AbstractCheck implements Check {
         return settings == null ? def : settings.getString(key, def);
     }
 
-    /** Threshold scaled by the player's Bedrock multiplier (1.0 for Java). */
+    /** Widened by the player's platform multiplier; no-op for Java. */
     protected double scaled(PlayerProfile profile, String key, double base) {
         return settings == null ? base : settings.scaled(key, base, profile.thresholdScale());
     }
 
-    // ---- flagging --------------------------------------------------------
-
-    /** Flags with the check's configured {@code vl-weight} (default 1.0). */
     protected final void flag(PlayerProfile profile, String debug, Object... args) {
-        profile.flag(this, d("vl-weight", 1.0D), debug, args);
+        profile.flag(this, d(VL_WEIGHT, DEFAULT_VL_WEIGHT), debug, args);
     }
 
-    /** Flags with {@code vl-weight * weight}. Use for severity-scaled flags. */
+    /** For severity-scaled flags; multiplies the configured vl-weight. */
     protected final void flag(PlayerProfile profile, double weight, String debug, Object... args) {
-        profile.flag(this, d("vl-weight", 1.0D) * weight, debug, args);
+        profile.flag(this, d(VL_WEIGHT, DEFAULT_VL_WEIGHT) * weight, debug, args);
     }
 
-    /** Awards decay credit for demonstrably clean behaviour. */
     protected final void reward(PlayerProfile profile, double amount) {
         profile.reward(this, amount);
     }

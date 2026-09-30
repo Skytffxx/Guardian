@@ -10,14 +10,15 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Killaura, detected through three independent signals:
- *   - multi-target attacks inside one tick,
- *   - attacks with no matching swing animation,
- *   - attacking entities through solid blocks.
- * Any one signal alone can be a false positive under lag, so VL only moves when
- * the same signal repeats inside its rolling window.
+ * Killaura, from three independent signals: multi-target attacks in one tick, attacks
+ * without a matching swing, and attacks through solid blocks. Each alone is a false
+ * positive under lag, so VL only moves on a streak.
  */
 public final class KillauraCheck extends AbstractCheck {
+
+    private static final double MULTI_TARGET_WEIGHT = 2.0D;
+    private static final double NO_SWING_WEIGHT = 1.5D;
+    private static final double THROUGH_WALL_WEIGHT = 2.5D;
 
     private static final class State {
         int lastAttackTick = Integer.MIN_VALUE;
@@ -36,10 +37,9 @@ public final class KillauraCheck extends AbstractCheck {
     @Override
     public void onAttack(PlayerProfile profile, AttackData attack) {
         State state = states.computeIfAbsent(profile.uuid(), key -> new State());
-        int currentTick = (int) profile.tick();
+        int tick = (int) profile.tick();
 
-        if (state.lastAttackTick == currentTick
-                && state.lastTargetId != attack.targetEntityId()) {
+        if (state.lastAttackTick == tick && state.lastTargetId != attack.targetEntityId()) {
             state.multiTargetStreak++;
         } else {
             state.multiTargetStreak = Math.max(0, state.multiTargetStreak - 1);
@@ -57,28 +57,24 @@ public final class KillauraCheck extends AbstractCheck {
             state.throughWallStreak = Math.max(0, state.throughWallStreak - 1);
         }
 
-        state.lastAttackTick = currentTick;
+        state.lastAttackTick = tick;
         state.lastTargetId = attack.targetEntityId();
 
-        int multiTargetLimit = i("multi-target-streak", 2);
-        int noSwingLimit = i("no-swing-streak", 4);
-        int throughWallLimit = i("through-wall-streak", 3);
-
-        if (state.multiTargetStreak >= multiTargetLimit) {
-            flag(profile, 2.0D, "multi-target in one tick streak=%d target=%s",
+        if (state.multiTargetStreak >= i("multi-target-streak", 2)) {
+            flag(profile, MULTI_TARGET_WEIGHT, "multi-target in one tick streak=%d target=%s",
                     state.multiTargetStreak, attack.targetType());
             state.multiTargetStreak = 0;
             return;
         }
 
-        if (state.noSwingStreak >= noSwingLimit) {
-            flag(profile, 1.5D, "attack without swing streak=%d", state.noSwingStreak);
+        if (state.noSwingStreak >= i("no-swing-streak", 4)) {
+            flag(profile, NO_SWING_WEIGHT, "attack without swing streak=%d", state.noSwingStreak);
             state.noSwingStreak = 0;
             return;
         }
 
-        if (state.throughWallStreak >= throughWallLimit) {
-            flag(profile, 2.5D, "attack through wall streak=%d target=%s dist=%.2f",
+        if (state.throughWallStreak >= i("through-wall-streak", 3)) {
+            flag(profile, THROUGH_WALL_WEIGHT, "attack through wall streak=%d target=%s dist=%.2f",
                     state.throughWallStreak, attack.targetType(), attack.hitboxDistance());
             state.throughWallStreak = 0;
         }

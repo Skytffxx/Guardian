@@ -7,10 +7,7 @@ import com.skyzzz.guardian.api.Platform;
 import com.skyzzz.guardian.api.check.Check;
 import com.skyzzz.guardian.api.violation.ViolationLevel;
 
-/**
- * Per-player state. One instance per online player, created on join and discarded
- * on quit — no static maps scattered across checks.
- */
+/** Per-player state: one instance per online player, alive from join to quit. */
 public interface PlayerProfile {
 
     UUID uuid();
@@ -21,14 +18,14 @@ public interface PlayerProfile {
 
     void setPlatform(Platform platform);
 
-    /** True when the player is on Geyser/Floodgate. */
+    /** True for Geyser/Floodgate clients. */
     default boolean isBedrock() {
         return platform() == Platform.BEDROCK;
     }
 
     /**
-     * Multiplier applied to every timing/angle threshold. Java = 1.0; Bedrock gets a
-     * configurable leniency factor from config so touch input is not punished.
+     * Multiplier on every timing and angle threshold: 1.0 on Java, a configurable
+     * leniency factor on Bedrock so touch input is not punished.
      */
     double thresholdScale();
 
@@ -40,7 +37,7 @@ public interface PlayerProfile {
 
     void setClientVersion(int clientVersion);
 
-    /** Monotonic server tick counter for this profile. */
+    /** Monotonic server tick counter. */
     long tick();
 
     void advanceTick();
@@ -53,10 +50,10 @@ public interface PlayerProfile {
 
     Map<String, Double> violationSnapshot();
 
-    /** Adds VL and returns the new total. Fires {@code GuardianFlagEvent}. */
+    /** Adds VL and returns the new total. */
     double flag(Check check, double weight, String debug, Object... args);
 
-    /** Applies decay credit for clean behaviour. */
+    /** Decay credit for clean play. */
     void reward(Check check, double amount);
 
     boolean isExempt(Check check);
@@ -68,8 +65,8 @@ public interface PlayerProfile {
     void setDebug(String checkName, boolean enabled);
 
     void sendDebug(String message);
-    
-    /** Free-form per-tick gameplay state populated by core (potions, TPS, liquids, …). */
+
+    /** Free-form per-tick state written by core and read by checks. */
     Object attribute(String key);
 
     void setAttribute(String key, Object value);

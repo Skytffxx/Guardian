@@ -5,8 +5,8 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
 /**
- * Optional economy fines and clean-play rewards. Entirely inert when Vault or an
- * economy provider is missing.
+ * Optional economy fines and clean-play rewards. Inert when Vault or an economy
+ * provider is missing.
  */
 public final class VaultHook {
 

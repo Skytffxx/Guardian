@@ -11,12 +11,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Packet flooding. Rate-limits inbound packets per second and escalates:
- * soft flag → hard VL → kick. A kick is a punishment-tier action configured in
- * config.yml, not something this check performs itself.
- *
- * The per-second window is a sliding bucket rather than a fixed second, so a burst
- * that straddles a second boundary is still counted correctly.
+ * Packet flooding. Escalates from a soft flag to a hard VL; any kick comes from a
+ * punishment tier in config.yml, not from this check. Packets are counted in real
+ * one-second buckets so a burst straddling a boundary is not split.
  */
 public final class FloodCheck extends AbstractCheck {
 
@@ -66,7 +63,6 @@ public final class FloodCheck extends AbstractCheck {
                     count, hardLimit, state.hardViolations);
             return;
         }
-
         if (count > softLimit && state.perSecond.isFull()
                 && state.perSecond.countAbove(softLimit) >= i("soft-required-seconds", 3)) {
             flag(profile, 1.0D, "sustained packet rate %d/s over %d seconds (soft limit %d)",

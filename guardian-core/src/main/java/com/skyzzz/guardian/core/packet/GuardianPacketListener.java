@@ -63,7 +63,6 @@ public final class GuardianPacketListener implements PacketListener {
                 event.getPacketType().getName(), PacketDirection.INBOUND, now);
         registry.dispatchPacketReceive(profile, data);
 
-        // --- inventory click window: capture slot for InventoryCheck ---
         if (event.getPacketType() == PacketType.Play.Client.CLICK_WINDOW) {
             try {
                 WrapperPlayClientClickWindow click = new WrapperPlayClientClickWindow(event);
@@ -74,7 +73,6 @@ public final class GuardianPacketListener implements PacketListener {
             }
         }
 
-        // --- keep-alive response ---
         if (event.getPacketType() == PacketType.Play.Client.KEEP_ALIVE) {
             WrapperPlayClientKeepAlive ka = new WrapperPlayClientKeepAlive(event);
             profile.setAttribute("keepalive-response-id", ka.getId());
@@ -82,7 +80,6 @@ public final class GuardianPacketListener implements PacketListener {
             return;
         }
 
-        // --- movement packets: fully async, no world access needed ---
         if (event.getPacketType() == PacketType.Play.Client.PLAYER_FLYING
                 || event.getPacketType() == PacketType.Play.Client.PLAYER_POSITION
                 || event.getPacketType() == PacketType.Play.Client.PLAYER_ROTATION
@@ -91,7 +88,6 @@ public final class GuardianPacketListener implements PacketListener {
             return;
         }
 
-        // --- attack packets: need world state for hitboxes, so hop to main ---
         if (event.getPacketType() == PacketType.Play.Client.INTERACT_ENTITY) {
             handleInteract(event, player, profile, now);
         }
@@ -183,7 +179,6 @@ public final class GuardianPacketListener implements PacketListener {
                 event.getPacketType().getName(), PacketDirection.OUTBOUND, System.nanoTime());
         registry.dispatchPacketSend(profile, data);
 
-        // --- outbound velocity ---
         if (event.getPacketType() == PacketType.Play.Server.ENTITY_VELOCITY) {
             WrapperPlayServerEntityVelocity velocity = new WrapperPlayServerEntityVelocity(event);
             Integer entityId = event.getUser().getEntityId();
@@ -197,7 +192,6 @@ public final class GuardianPacketListener implements PacketListener {
             }
         }
 
-        // --- outbound keep-alive ---
         if (event.getPacketType() == PacketType.Play.Server.KEEP_ALIVE) {
             WrapperPlayServerKeepAlive ka = new WrapperPlayServerKeepAlive(event);
             profile.setAttribute("keepalive-sent-id", ka.getId());

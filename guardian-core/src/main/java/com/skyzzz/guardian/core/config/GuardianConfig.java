@@ -10,11 +10,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.logging.Level;
 
 /**
- * Owns config.yml. Every getter takes an explicit default, so a missing key never
- * breaks anything — it just means "use the documented default".
+ * Owns config.yml. Every getter takes an explicit default, so a missing key falls back
+ * to the documented value instead of throwing.
  */
 public final class GuardianConfig {
 
@@ -35,15 +36,14 @@ public final class GuardianConfig {
             plugin.saveResource("config.yml", false);
         }
 
-        this.configuration = YamlConfiguration.loadConfiguration(file);
+        configuration = YamlConfiguration.loadConfiguration(file);
 
-        // Merge in any keys added by a newer Guardian version so upgrades don't
-        // silently lose new defaults.
+        // Defaults merge keeps keys added by newer versions visible to existing configs.
         try (InputStream defaults = plugin.getResource("config.yml")) {
             if (defaults != null) {
-                this.configuration.setDefaults(YamlConfiguration.loadConfiguration(
+                configuration.setDefaults(YamlConfiguration.loadConfiguration(
                         new InputStreamReader(defaults, StandardCharsets.UTF_8)));
-                this.configuration.options().copyDefaults(true);
+                configuration.options().copyDefaults(true);
             }
         } catch (IOException exception) {
             plugin.getLogger().log(Level.WARNING, "Could not load config defaults", exception);
@@ -86,7 +86,7 @@ public final class GuardianConfig {
         return configuration.getBoolean(path, def);
     }
 
-    public java.util.List<String> getStringList(String path) {
+    public List<String> getStringList(String path) {
         return configuration.getStringList(path);
     }
 

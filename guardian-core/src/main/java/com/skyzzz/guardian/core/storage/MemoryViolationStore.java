@@ -24,7 +24,6 @@ public final class MemoryViolationStore implements ViolationStore {
 
     @Override
     public synchronized void init() {
-        // nothing to do
     }
 
     @Override
@@ -68,6 +67,5 @@ public final class MemoryViolationStore implements ViolationStore {
 
     @Override
     public void flush() {
-        // nothing to do
     }
 }

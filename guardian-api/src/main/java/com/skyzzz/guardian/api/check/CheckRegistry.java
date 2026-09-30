@@ -7,6 +7,7 @@ import java.util.Optional;
 import com.skyzzz.guardian.api.data.AttackData;
 import com.skyzzz.guardian.api.data.BlockBreakData;
 import com.skyzzz.guardian.api.data.BlockPlaceData;
+import com.skyzzz.guardian.api.data.DamageData;
 import com.skyzzz.guardian.api.data.MoveData;
 import com.skyzzz.guardian.api.data.PacketData;
 import com.skyzzz.guardian.api.player.PlayerProfile;
@@ -25,12 +26,10 @@ public interface CheckRegistry {
 
     boolean setEnabled(String name, boolean enabled);
 
-    /** Re-reads config and re-binds every registered check. */
+    /** Re-reads config and re-binds all checks. */
     void reloadAll();
 
-    // ---- dispatch ---------------------------------------------------------
-    
-    void dispatchDamage(PlayerProfile profile, com.skyzzz.guardian.api.data.DamageData damage);
+    void dispatchDamage(PlayerProfile profile, DamageData damage);
 
     void dispatchPacketReceive(PlayerProfile profile, PacketData data);
 

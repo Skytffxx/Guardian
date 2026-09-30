@@ -14,9 +14,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Plain HTTP webhook — no bot framework, no gateway connection.
- * Sends are queued on a single-thread executor so a slow Discord endpoint can never
- * block the server thread.
+ * Plain HTTP webhook, no bot framework or gateway. Sends go through a single-thread
+ * executor so a slow Discord endpoint cannot block the server thread.
  */
 public final class DiscordWebhook {
 
@@ -66,11 +65,11 @@ public final class DiscordWebhook {
     }
 
     private JsonObject field(String name, String value, boolean inline) {
-        JsonObject field = new JsonObject();
-        field.addProperty("name", name);
-        field.addProperty("value", value == null || value.isBlank() ? "—" : value);
-        field.addProperty("inline", inline);
-        return field;
+        JsonObject entry = new JsonObject();
+        entry.addProperty("name", name);
+        entry.addProperty("value", value == null || value.isBlank() ? "—" : value);
+        entry.addProperty("inline", inline);
+        return entry;
     }
 
     private void post(String body) {
@@ -82,8 +81,8 @@ public final class DiscordWebhook {
                     .timeout(Duration.ofSeconds(8))
                     .build();
             client.send(request, HttpResponse.BodyHandlers.discarding());
-        } catch (IOException | InterruptedException exception) {
-            if (exception instanceof InterruptedException) {
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
         }

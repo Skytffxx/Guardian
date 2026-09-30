@@ -13,6 +13,6 @@ public interface ProfileManager {
 
     void tickAll();
 
-    /** Total VL across every check, used for trust scores / PlaceholderAPI. */
+    /** Sum of every check's VL for this player. */
     double totalViolations(UUID uuid);
 }

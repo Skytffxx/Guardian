@@ -29,10 +29,10 @@ public final class SqlViolationStore implements ViolationStore {
 
     private final GuardianPlugin plugin;
     private final GuardianConfig config;
+    private final LinkedBlockingQueue<ViolationRecord> queue = new LinkedBlockingQueue<>(20_000);
 
     private HikariDataSource dataSource;
     private ExecutorService writer;
-    private final LinkedBlockingQueue<ViolationRecord> queue = new LinkedBlockingQueue<>(20_000);
     private volatile boolean running;
 
     public SqlViolationStore(GuardianPlugin plugin, GuardianConfig config) {

@@ -6,6 +6,7 @@ import com.skyzzz.guardian.core.GuardianPlugin;
 import com.skyzzz.guardian.core.alert.AlertManager;
 import com.skyzzz.guardian.core.config.GuardianConfig;
 import com.skyzzz.guardian.core.config.Messages;
+import com.skyzzz.guardian.api.violation.ViolationRecord;
 import org.bukkit.Bukkit;
 
 import java.util.List;
@@ -15,25 +16,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * VL thresholds → commands. Never hardcodes a punishment plugin: it fires
- * configurable commands, so LiteBans, AdvancedBan, vanilla ban, or anything else
- * works without a code change.
- *
- * Cooldowns prevent a lag-induced VL spike from firing the same tier five times.
+ * Turns VL thresholds into configurable console commands, so LiteBans, AdvancedBan,
+ * vanilla or anything else works without a Guardian-specific integration. Tier
+ * cooldowns keep a lag spike from firing the same tier repeatedly.
  */
 public final class PunishmentManager {
 
-    private static final class Tier {
-        final double threshold;
-        final List<String> commands;
-        final long cooldownMillis;
-
-        Tier(double threshold, List<String> commands, long cooldownMillis) {
-            this.threshold = threshold;
-            this.commands = commands;
-            this.cooldownMillis = cooldownMillis;
-        }
-    }
+    private static final long DEFAULT_COOLDOWN_MILLIS = 30_000L;
 
     private final GuardianPlugin plugin;
     private final GuardianConfig config;
@@ -61,7 +50,7 @@ public final class PunishmentManager {
     }
 
     public void handleFlag(PlayerProfile profile, Check check, double newLevel, String debug) {
-        // Alerts are throttled per player+check so a burst produces one message.
+        // One alert per player+check per throttle window; a burst must not spam.
         long now = System.currentTimeMillis();
         long throttleMs = config.getInt("alerts.throttle-ms", 1500);
         String alertKey = profile.uuid() + ":" + check.name();
@@ -71,7 +60,7 @@ public final class PunishmentManager {
             if (alertManager != null) {
                 alertManager.alert(profile, check, newLevel, debug);
             }
-            plugin.violations().record(new com.skyzzz.guardian.api.violation.ViolationRecord(
+            plugin.violations().record(new ViolationRecord(
                     0L, profile.uuid(), profile.name(), check.name(),
                     check.category().key(), newLevel, debug, now));
         }
@@ -91,23 +80,19 @@ public final class PunishmentManager {
 
     private void applyTiers(PlayerProfile profile, String source, double level, String path) {
         List<Map<?, ?>> tiers = config.raw().getMapList(path + ".tiers");
-        if (tiers.isEmpty()) {
-            return;
-        }
 
-        for (Map<?, ?> rawTier : tiers) {
-            Object thresholdObject = rawTier.get("threshold");
-            if (!(thresholdObject instanceof Number thresholdNumber)) {
+        for (Map<?, ?> tier : tiers) {
+            if (!(tier.get("threshold") instanceof Number thresholdValue)) {
                 continue;
             }
-            double threshold = thresholdNumber.doubleValue();
+            double threshold = thresholdValue.doubleValue();
             if (level < threshold) {
                 continue;
             }
 
-            long cooldown = rawTier.get("cooldown-seconds") instanceof Number cooldownNumber
-                    ? cooldownNumber.longValue() * 1000L
-                    : 30_000L;
+            long cooldown = tier.get("cooldown-seconds") instanceof Number seconds
+                    ? seconds.longValue() * 1000L
+                    : DEFAULT_COOLDOWN_MILLIS;
 
             String key = profile.uuid() + ":" + source + ":" + threshold;
             long now = System.currentTimeMillis();
@@ -117,12 +102,10 @@ public final class PunishmentManager {
             }
             lastPunish.put(key, now);
 
-            Object commandsObject = rawTier.get("commands");
-            if (!(commandsObject instanceof List<?> commandList)) {
+            if (!(tier.get("commands") instanceof List<?> commands)) {
                 continue;
             }
-
-            for (Object entry : commandList) {
+            for (Object entry : commands) {
                 if (!(entry instanceof String command) || command.isBlank()) {
                     continue;
                 }

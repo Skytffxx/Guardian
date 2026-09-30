@@ -12,8 +12,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Reach-on-blocks: interacting with a block farther than the legal reach distance.
- * Mirrors ReachCheck but for BlockPlaceData / BlockBreakData.
+ * Reach on blocks: placing or breaking a block farther than the legal reach distance.
+ * The break path reads the distance recorded by core because the break event carries no
+ * eye position.
  */
 public final class BlockReachCheck extends AbstractCheck {
 
@@ -31,28 +32,28 @@ public final class BlockReachCheck extends AbstractCheck {
     @Override
     public void onBlockBreak(PlayerProfile profile, BlockBreakData breakData) {
         Object distanceAttr = profile.attribute("last-break-eye-distance");
-        double distance = distanceAttr instanceof Number number ? number.doubleValue() : -1.0D;
+        double distance = distanceAttr instanceof Number n ? n.doubleValue() : -1.0D;
         if (distance < 0.0D) {
             return;
         }
         Object losAttr = profile.attribute("last-break-line-of-sight");
-        boolean lineOfSight = !Boolean.FALSE.equals(losAttr);
-        evaluate(profile, distance, lineOfSight);
+        evaluate(profile, distance, !Boolean.FALSE.equals(losAttr));
     }
 
     private void evaluate(PlayerProfile profile, double distance, boolean lineOfSight) {
-        // Interacting through a wall at extreme distance is aim/phase territory;
-        // reach measures clean line-of-sight distance.
+        // Through-wall interactions at range belong to the aim/phase checks; reach only
+        // measures distance with a clean line of sight.
         if (!lineOfSight) {
             return;
         }
+
         double max = scaled(profile, "max-reach", 4.5D) + d("buffer", 0.1D);
         double pingBonus = Math.min(d("ping-compensation-cap", 0.4D),
                 profile.ping() * d("ping-compensation-per-ms", 0.0022D));
         double allowed = max + pingBonus;
 
         RollingWindow window = windows.computeIfAbsent(profile.uuid(),
-                key -> new RollingWindow(i("window-size", 8)));
+                k -> new RollingWindow(i("window-size", 8)));
 
         if (distance <= allowed) {
             window.add(0.0D);
@@ -63,10 +64,7 @@ public final class BlockReachCheck extends AbstractCheck {
         double excess = distance - allowed;
         window.add(excess);
 
-        if (!window.isFull()) {
-            return;
-        }
-        if (window.countAbove(d("minimum-excess", 0.05D)) < i("required-flags", 3)) {
+        if (!window.isFull() || window.countAbove(d("minimum-excess", 0.05D)) < i("required-flags", 3)) {
             return;
         }
 

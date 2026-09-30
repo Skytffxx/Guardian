@@ -4,7 +4,6 @@ import com.skyzzz.guardian.api.check.CheckSettings;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.List;
-import java.util.Objects;
 
 public final class BukkitCheckSettings implements CheckSettings {
 
@@ -12,7 +11,7 @@ public final class BukkitCheckSettings implements CheckSettings {
     private final GuardianConfig config;
 
     public BukkitCheckSettings(ConfigurationSection section, GuardianConfig config) {
-        this.section = Objects.requireNonNull(section, "section");
+        this.section = section;
         this.config = config;
     }
 

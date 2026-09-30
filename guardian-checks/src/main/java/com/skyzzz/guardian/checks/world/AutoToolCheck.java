@@ -10,13 +10,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * AutoTool.
- *
- * A cheat switches to the optimal hotbar slot in the same tick the block break
- * begins, with zero human reaction time — repeatedly. Detection: on a block break,
- * if the last hotbar switch happened within the last N ticks AND the switch moved
- * to a tool matching the block being broken, streak. Legitimate players do switch
- * quickly; the pattern that survives is the sustained zero-reaction one.
+ * AutoTool: the client switches to the optimal hotbar slot in the same tick a break
+ * starts, with no human reaction time, over and over. We streak breaks whose preceding
+ * switch happened within a couple of ticks and matched the block, so an occasional fast
+ * switch never flags.
  */
 public final class AutoToolCheck extends AbstractCheck {
 
@@ -40,27 +37,25 @@ public final class AutoToolCheck extends AbstractCheck {
             return;
         }
 
-        long ticksSinceSwitch = profile.tick() - switchTick;
-
-        int reactionWindow = i("reaction-window-ticks", 2);
+        long sinceSwitch = profile.tick() - switchTick;
         String tool = (String) profile.attribute("tool-type");
-        boolean optimalTool = tool != null && isOptimalFor(tool, breakData.material());
+        boolean optimal = tool != null && optimalFor(tool, breakData.material());
 
-        if (ticksSinceSwitch <= reactionWindow && optimalTool) {
+        if (sinceSwitch <= i("reaction-window-ticks", 2) && optimal) {
             state.streak++;
         } else {
             state.streak = Math.max(0, state.streak - 1);
         }
 
-        if (state.streak >= i("required-flags", 6)) {
-            flag(profile, 1.5D,
-                    "auto-tool streak=%d switch %d ticks before breaking %s with %s",
-                    state.streak, ticksSinceSwitch, breakData.material(), tool);
+        int required = i("required-flags", 6);
+        if (state.streak >= required) {
+            flag(profile, 1.5D, "auto-tool streak=%d switch %d ticks before breaking %s with %s",
+                    state.streak, sinceSwitch, breakData.material(), tool);
             state.streak = 0;
         }
     }
 
-    private boolean isOptimalFor(String tool, String material) {
+    private boolean optimalFor(String tool, String material) {
         if (material.contains("STONE") || material.contains("ORE") || material.contains("DEEPSLATE")) {
             return tool.endsWith("_PICKAXE");
         }

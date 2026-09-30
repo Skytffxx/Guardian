@@ -12,17 +12,14 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * False-positive harness.
+ * False-positive harness: replays a recorded packet log straight through the check
+ * pipeline so FP rates are measured before deployment.
  *
- * Feeds a recorded packet log of legitimate gameplay straight through the check
- * pipeline, so FP rates get measured before deployment instead of discovered by
- * angry players after it.
+ * <p>Log format, one comma-separated record per line:
+ * {@code MOVE,<x>,<y>,<z>,<lastX>,<lastY>,<lastZ>,<yaw>,<pitch>,<lastYaw>,<lastPitch>,<onGround>,<lastOnGround>,<deltaNanos>}
+ * and {@code TICK,<deltaNanos>}.
  *
- * Log format — one record per line, comma-separated:
- *   MOVE,<x>,<y>,<z>,<lastX>,<lastY>,<lastZ>,<yaw>,<pitch>,<lastYaw>,<lastPitch>,<onGround>,<lastOnGround>,<deltaNanos>
- *   TICK,<deltaNanos>
- *
- * Usage: /guardian replay <file> (staff-only, on a test server).
+ * <p>Usage: {@code /guardian replay <file>} on a test server.
  */
 public final class ReplayRunner {
 
@@ -74,7 +71,7 @@ public final class ReplayRunner {
             }
             case "TICK" -> registry.dispatchTick(profile);
             default -> {
-                // Unknown record type — ignore rather than abort the whole replay.
+                // Unknown record type: skip rather than abort the whole replay.
             }
         }
     }
@@ -82,7 +79,7 @@ public final class ReplayRunner {
     private double d(String value) {
         try {
             return Double.parseDouble(value);
-        } catch (NumberFormatException exception) {
+        } catch (NumberFormatException e) {
             return 0.0D;
         }
     }

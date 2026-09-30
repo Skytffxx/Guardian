@@ -2,14 +2,14 @@ package com.skyzzz.guardian.checks.packet;
 
 import com.skyzzz.guardian.api.check.AbstractCheck;
 import com.skyzzz.guardian.api.check.CheckCategory;
+import com.skyzzz.guardian.api.check.CheckSettings;
 import com.skyzzz.guardian.api.data.MoveData;
 import com.skyzzz.guardian.api.data.PacketData;
 import com.skyzzz.guardian.api.player.PlayerProfile;
 
 /**
- * Core packet sanity. This is deliberately part of the hardcoded 10–15%: it is
- * NOT disableable via config, because a careless config edit here turns directly
- * into a bypass. {@link #bind} ignores the enabled flag for this check.
+ * Structural packet sanity. Not disableable by config on purpose: turning it off in a
+ * careless config edit is a bypass, so {@link #bind} ignores the enabled flag.
  */
 public final class PacketSanityCheck extends AbstractCheck {
 
@@ -18,9 +18,8 @@ public final class PacketSanityCheck extends AbstractCheck {
     }
 
     @Override
-    public void bind(com.skyzzz.guardian.api.check.CheckSettings settings) {
+    public void bind(CheckSettings settings) {
         super.bind(settings);
-        // Sanity validation is structural, not tunable — always active.
         setEnabled(true);
     }
 
@@ -60,11 +59,6 @@ public final class PacketSanityCheck extends AbstractCheck {
         }
     }
 
-    private boolean isFinite(double value) {
-        return !Double.isNaN(value) && !Double.isInfinite(value);
-    }
-
-    private boolean isFinite(float value) {
-        return !Float.isNaN(value) && !Float.isInfinite(value);
-    }
+    private boolean isFinite(double value) { return !Double.isNaN(value) && !Double.isInfinite(value); }
+    private boolean isFinite(float value) { return !Float.isNaN(value) && !Float.isInfinite(value); }
 }

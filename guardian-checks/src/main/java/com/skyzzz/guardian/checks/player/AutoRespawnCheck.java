@@ -9,10 +9,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * AutoRespawn: respawning faster than a human can react after death.
- * TODO(next pass): needs the death timestamp from core's death listener.
- */
+/** AutoRespawn: respawning faster than a human can react after death. */
 public final class AutoRespawnCheck extends AbstractCheck {
 
     private final Map<UUID, Long> deathTimes = new ConcurrentHashMap<>();
@@ -21,7 +18,7 @@ public final class AutoRespawnCheck extends AbstractCheck {
         super("autorespawn", CheckCategory.PLAYER);
     }
 
-    /** Called by core on PlayerDeathEvent. */
+    /** Core calls this from PlayerDeathEvent. */
     public void onDeath(UUID uuid, long timestampNanos) {
         deathTimes.put(uuid, timestampNanos);
     }
@@ -35,6 +32,7 @@ public final class AutoRespawnCheck extends AbstractCheck {
         if (deathTime == null) {
             return;
         }
+
         double reactionMs = (packet.timestampNanos() - deathTime) / 1_000_000.0D;
         if (reactionMs < scaled(profile, "minimum-reaction-ms", 150.0D)) {
             flag(profile, 1.0D, "respawn reaction=%.0fms", reactionMs);

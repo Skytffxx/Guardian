@@ -10,14 +10,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Scaffold / tower. Two signals:
- *   1. Rotation-while-placing: the player places a block they cannot see from their
- *      reported look vector (classic "silent rotation" scaffold).
- *   2. Tower placement below the feet with a pitch that is not downward enough.
- *
- * Bedrock gets a much wider angular tolerance because touch placement genuinely
- * produces different aim timing. Full exemption would be a labelled bypass, so we
- * tune instead.
+ * Scaffold and tower: blocks placed outside the reported look vector, tower blocks
+ * placed with too shallow a downward pitch, and placement faster than a human cadence.
+ * Bedrock gets a wider angular tolerance via the platform scale.
  */
 public final class ScaffoldCheck extends AbstractCheck {
 
@@ -46,7 +41,6 @@ public final class ScaffoldCheck extends AbstractCheck {
             return;
         }
 
-        // --- signal 1: placing a block that is not in the look direction ---
         if (!place.lineOfSight()
                 && place.eyeDistance() > d("line-of-sight-minimum-distance", 1.0D)) {
             state.rotationMissStreak++;
@@ -54,7 +48,6 @@ public final class ScaffoldCheck extends AbstractCheck {
             state.rotationMissStreak = Math.max(0, state.rotationMissStreak - 1);
         }
 
-        // --- signal 2: tower placement with insufficient downward pitch ---
         boolean placedBelowFeet = place.blockY() < place.eyeY() - d("below-feet-threshold", 1.2D);
         if (placedBelowFeet
                 && place.pitch() > -scaled(profile, "tower-minimum-pitch", 55.0F)) {
@@ -63,7 +56,6 @@ public final class ScaffoldCheck extends AbstractCheck {
             state.towerMissStreak = Math.max(0, state.towerMissStreak - 1);
         }
 
-        // --- signal 3: superhuman placement cadence ---
         if (state.lastPlaceNanos != 0L) {
             double intervalMs = (place.timestampNanos() - state.lastPlaceNanos) / 1_000_000.0D;
             if (intervalMs < d("minimum-interval-ms", 85.0D)) {

@@ -3,10 +3,7 @@ package com.skyzzz.guardian.api.violation;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Historical violation log. Storage is optional: {@code MemoryViolationStore} is
- * always available and SQLite/MySQL are opt-in. Guardian runs fine without a DB.
- */
+/** Historical violation log. Memory-backed by default; SQLite and MySQL are opt-in. */
 public interface ViolationStore {
 
     void init() throws Exception;

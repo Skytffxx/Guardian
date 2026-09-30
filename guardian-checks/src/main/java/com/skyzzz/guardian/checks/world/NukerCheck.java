@@ -11,8 +11,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Nuker: multiple block breaks in a single tick, or an implausible break rate across
- * a window. Instant-break blocks (tall grass, flowers) are excluded because they
+ * Nuker: several block breaks inside one tick, or an implausible break rate across a
+ * window. Instant-break blocks (grass, flowers, torches) are skipped since they
  * legitimately break in one tick each.
  */
 public final class NukerCheck extends AbstractCheck {
@@ -35,12 +35,10 @@ public final class NukerCheck extends AbstractCheck {
 
     @Override
     public void onBlockBreak(PlayerProfile profile, BlockBreakData breakData) {
-        // Instant-break blocks (grass, flowers, torches) legitimately break in one tick each.
         if (breakData.instantBreak()) {
             return;
         }
-        State state = states.computeIfAbsent(profile.uuid(),
-                key -> new State(i("window-size", 20)));
+        State state = states.computeIfAbsent(profile.uuid(), k -> new State(i("window-size", 20)));
 
         int currentTick = (int) profile.tick();
         if (currentTick != state.lastTick) {

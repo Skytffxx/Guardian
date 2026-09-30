@@ -6,18 +6,10 @@ import com.skyzzz.guardian.api.data.AttackData;
 import com.skyzzz.guardian.api.player.PlayerProfile;
 
 /**
- * Statistical click-pattern analysis.
- *
- * Raw CPS is deliberately NOT the trigger — a jitter-clicking human can sustain
- * 16+ CPS legitimately and that is the single biggest false-positive source in
- * naive anticheats. What we measure instead:
- *
- *   1. Coefficient of variation (stdev / mean) of inter-click intervals.
- *      Humans are noisy (CV typically > 0.12); macro/timer clickers are not (< 0.05).
- *   2. Duplicate-interval density — a fixed-delay macro produces intervals that
- *      repeat to the millisecond.
- *
- * Both signals must agree, over a full window, before VL moves.
+ * Click-pattern statistics. Raw CPS is never the trigger: jitter-clicking humans
+ * sustain 16+ CPS legitimately, which is the biggest false-positive source in naive
+ * anticheats. Instead the coefficient of variation and duplicate-interval density are
+ * measured together, and both must agree across a full window before VL moves.
  */
 public final class AutoclickerCheck extends AbstractCheck {
 
@@ -31,35 +23,27 @@ public final class AutoclickerCheck extends AbstractCheck {
         if (intervalMs < 0L) {
             return;
         }
-
-        int minSamples = i("min-samples", 25);
-        if (profile.clicks().size() < minSamples) {
+        if (profile.clicks().size() < i("min-samples", 25)) {
             return;
         }
 
-        double minimumCps = d("minimum-cps", 8.0D);
         double mean = profile.clicks().mean();
-        if (mean <= 0.0D || 1000.0D / mean < minimumCps) {
+        if (mean <= 0.0D || 1000.0D / mean < d("minimum-cps", 8.0D)) {
             reward(profile, d("clean-reward", 0.2D));
             return;
         }
 
-        double cv = profile.clicks().coefficientOfVariation();
         double cvThreshold = scaled(profile, "min-coefficient-of-variation", 0.075D);
-        boolean tooConsistent = cv < cvThreshold;
-
+        double cv = profile.clicks().coefficientOfVariation();
         int duplicates = profile.clicks().duplicateIntervalCount(i("duplicate-tolerance-ms", 2));
         double duplicateRatio = (double) duplicates / profile.clicks().size();
-        boolean tooRepetitive = duplicateRatio > d("max-duplicate-ratio", 0.35D);
 
-        // Multi-signal corroboration: both independent signals must agree.
-        if (!(tooConsistent && tooRepetitive)) {
+        if (cv >= cvThreshold || duplicateRatio <= d("max-duplicate-ratio", 0.35D)) {
             reward(profile, d("clean-reward", 0.1D));
             return;
         }
 
-        double severity = (cvThreshold - cv) / cvThreshold;
-        flag(profile, 1.0D + severity,
+        flag(profile, 1.0D + (cvThreshold - cv) / cvThreshold,
                 "cps=%.1f cv=%.4f (min %.4f) duplicates=%.2f%% samples=%d",
                 1000.0D / mean, cv, cvThreshold, duplicateRatio * 100.0D,
                 profile.clicks().size());

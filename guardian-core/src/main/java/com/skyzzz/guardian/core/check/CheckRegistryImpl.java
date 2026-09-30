@@ -4,10 +4,10 @@ import com.skyzzz.guardian.api.check.Check;
 import com.skyzzz.guardian.api.check.CheckCategory;
 import com.skyzzz.guardian.api.check.CheckRegistry;
 import com.skyzzz.guardian.api.check.CheckSettings;
-import com.skyzzz.guardian.api.data.DamageData;
 import com.skyzzz.guardian.api.data.AttackData;
 import com.skyzzz.guardian.api.data.BlockBreakData;
 import com.skyzzz.guardian.api.data.BlockPlaceData;
+import com.skyzzz.guardian.api.data.DamageData;
 import com.skyzzz.guardian.api.data.MoveData;
 import com.skyzzz.guardian.api.data.PacketData;
 import com.skyzzz.guardian.api.player.PlayerProfile;
@@ -31,11 +31,11 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     private final Map<String, Check> byName = new ConcurrentHashMap<>();
     private final Map<CheckCategory, List<Check>> byCategory = new ConcurrentHashMap<>();
-    // Cached enabled-check snapshots per dispatch path: rebuilding the filtered
-    // list on every packet is the hottest allocation in the pipeline.
-    private volatile java.util.List<Check> packetMoveListeners = java.util.List.of();
-    private volatile java.util.List<Check> packetReceiveExtra = java.util.List.of();
-    private volatile java.util.List<Check> anySendTickJoinDamage = java.util.List.of();
+    // Pre-filtered snapshots: rebuilding the enabled list per packet was the hottest
+    // allocation in the pipeline.
+    private volatile List<Check> moveChecks = List.of();
+    private volatile List<Check> extraChecks = List.of();
+    private volatile List<Check> tickChecks = List.of();
 
     public CheckRegistryImpl(GuardianPlugin plugin, GuardianConfig config) {
         this.plugin = plugin;
@@ -57,11 +57,12 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     @Override
     public void unregister(String name) {
-        Check removed = byName.remove(name.toLowerCase());
-        if (removed != null) {
-            byCategory.get(removed.category()).remove(removed);
-            refreshCaches();
+        Check check = byName.remove(name.toLowerCase());
+        if (check == null) {
+            return;
         }
+        byCategory.get(check.category()).remove(check);
+        refreshCaches();
     }
 
     @Override
@@ -94,15 +95,13 @@ public final class CheckRegistryImpl implements CheckRegistry {
     @Override
     public void reloadAll() {
         for (Check check : byName.values()) {
+            String path = "checks." + check.category().key() + "." + check.name();
             try {
-                CheckSettings settings = new BukkitCheckSettings(
-                        config.section("checks." + check.category().key() + "." + check.name()),
-                        config);
+                CheckSettings settings = new BukkitCheckSettings(config.section(path), config);
                 check.bind(settings);
             } catch (Exception exception) {
-                plugin.getLogger().log(Level.WARNING,
-                        "Failed to bind settings for check " + check.name()
-                                + "; disabling it for safety", exception);
+                plugin.getLogger().log(Level.WARNING, "Failed to bind settings for check "
+                        + check.name() + "; disabling it for safety", exception);
                 check.setEnabled(false);
             }
         }
@@ -111,17 +110,17 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     @Override
     public void dispatchPacketReceive(PlayerProfile profile, PacketData data) {
-        for (Check check : packetMoveListeners) {
+        for (Check check : moveChecks) {
             safe(() -> check.onPacketReceive(profile, data), check);
         }
-        for (Check check : packetReceiveExtra) {
+        for (Check check : extraChecks) {
             safe(() -> check.onPacketReceive(profile, data), check);
         }
     }
 
     @Override
     public void dispatchPacketSend(PlayerProfile profile, PacketData data) {
-        for (Check check : anySendTickJoinDamage) {
+        for (Check check : tickChecks) {
             if (check.isEnabled()) {
                 safe(() -> check.onPacketSend(profile, data), check);
             }
@@ -130,14 +129,14 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     @Override
     public void dispatchMove(PlayerProfile profile, MoveData data) {
-        for (Check check : packetMoveListeners) {
+        for (Check check : moveChecks) {
             safe(() -> check.onMove(profile, data), check);
         }
     }
 
     @Override
     public void dispatchAttack(PlayerProfile profile, AttackData data) {
-        for (Check check : packetMoveListeners) {
+        for (Check check : moveChecks) {
             if (check.category() == CheckCategory.COMBAT) {
                 safe(() -> check.onAttack(profile, data), check);
             }
@@ -146,7 +145,7 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     @Override
     public void dispatchBlockPlace(PlayerProfile profile, BlockPlaceData data) {
-        for (Check check : packetReceiveExtra) {
+        for (Check check : extraChecks) {
             if (check.category() == CheckCategory.WORLD) {
                 safe(() -> check.onBlockPlace(profile, data), check);
             }
@@ -155,7 +154,7 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     @Override
     public void dispatchBlockBreak(PlayerProfile profile, BlockBreakData data) {
-        for (Check check : packetReceiveExtra) {
+        for (Check check : extraChecks) {
             if (check.category() == CheckCategory.WORLD) {
                 safe(() -> check.onBlockBreak(profile, data), check);
             }
@@ -164,7 +163,7 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     @Override
     public void dispatchTick(PlayerProfile profile) {
-        for (Check check : anySendTickJoinDamage) {
+        for (Check check : tickChecks) {
             if (check.isEnabled()) {
                 safe(() -> check.onTick(profile), check);
             }
@@ -173,7 +172,7 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     @Override
     public void dispatchJoin(PlayerProfile profile) {
-        for (Check check : anySendTickJoinDamage) {
+        for (Check check : tickChecks) {
             if (check.isEnabled()) {
                 safe(() -> check.onJoin(profile), check);
             }
@@ -191,17 +190,14 @@ public final class CheckRegistryImpl implements CheckRegistry {
 
     @Override
     public void dispatchDamage(PlayerProfile profile, DamageData data) {
-        for (Check check : packetMoveListeners) {
+        for (Check check : moveChecks) {
             if (check.category() == CheckCategory.COMBAT) {
                 safe(() -> check.onDamage(profile, data), check);
             }
         }
     }
 
-    /**
-     * Rebuilds the cached dispatch snapshots. Called on register/unregister,
-     * reload, toggle, and whenever a throwing check is auto-disabled.
-     */
+    /** Called whenever the enabled set changes: register, unregister, reload, toggle, auto-disable. */
     private void refreshCaches() {
         List<Check> move = new ArrayList<>();
         List<Check> extra = new ArrayList<>();
@@ -216,9 +212,9 @@ public final class CheckRegistryImpl implements CheckRegistry {
             }
             rest.add(check);
         }
-        packetMoveListeners = List.copyOf(move);
-        packetReceiveExtra = List.copyOf(extra);
-        anySendTickJoinDamage = List.copyOf(rest);
+        moveChecks = List.copyOf(move);
+        extraChecks = List.copyOf(extra);
+        tickChecks = List.copyOf(rest);
     }
 
     private void safe(Runnable action, Check check) {

@@ -10,24 +10,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * FastBreak — using the real vanilla break-time formula.
- *
- * Break time in ticks:
- *   damagePerTick = toolSpeed / hardness / (canHarvest ? 30 : 100)
- *   ticksToBreak = ceil(1 / damagePerTick)
- *   If damagePerTick >= 1.0, the block breaks instantly.
- *
- * toolSpeed:
- *   base: 1.0, or the tool's material speed if it is the correct tool for the block
- *   Efficiency: += level^2 + 1
- *   Haste:      *= 1 + 0.2 * (amplifier + 1)
- *   Conduit:    *= 1.5 when underwater with conduit power
- *   In water without Aqua Affinity: /= 5
- *   Airborne (not on ground): /= 5
- *
- * The check compares actual break interval against this computed minimum. It fires
- * only after a sustained streak, because the very first break of a block type has
- * no prior sample and network jitter can make a single interval look short.
+ * FastBreak, compared against the real vanilla break-time formula:
+ * {@code damagePerTick = toolSpeed / hardness / (canHarvest ? 30 : 100)}.
+ * The streak requirement exists because the first break of a block type has no prior
+ * sample and jitter can make a single interval look short.
  */
 public final class FastBreakCheck extends AbstractCheck {
 
@@ -64,7 +50,7 @@ public final class FastBreakCheck extends AbstractCheck {
         state.lastBreakNanos = now;
         state.lastMaterial = breakData.material();
 
-        // Stale heartbeats (teleport, world change, long pause) are not break intervals.
+        // A pause spans a teleport or world change, not a break interval.
         if (actualMs > d("ignore-above-ms", 10_000.0D)) {
             state.streak = 0;
             return;
@@ -93,8 +79,8 @@ public final class FastBreakCheck extends AbstractCheck {
     }
 
     /**
-     * Expected break time in milliseconds using the vanilla formula.
-     * Returns 0 when the block is breakable in one tick anyway, so the caller skips it.
+     * Expected break time in ms, or 0 when the block breaks in a single tick so the
+     * caller can skip it.
      */
     private double expectedBreakMs(PlayerProfile profile, String material) {
         double hardness = number(profile, "block-hardness-for-" + material, -1.0D);
@@ -164,26 +150,22 @@ public final class FastBreakCheck extends AbstractCheck {
         if (tool == null) {
             return false;
         }
-        // Pickaxe: stone, ores, deepslate, obsidian, metal blocks, ice, rails, etc.
         if (material.endsWith("_ORE") || material.contains("STONE") || material.contains("DEEPSLATE")
                 || material.equals("OBSIDIAN") || material.equals("CRYING_OBSIDIAN")
                 || material.equals("ANCIENT_DEBRIS") || material.contains("_BLOCK")
                 && !material.contains("WOOD")) {
             return tool.endsWith("_PICKAXE");
         }
-        // Axe: logs, planks, wooden materials.
         if (material.endsWith("_LOG") || material.endsWith("_WOOD") || material.endsWith("_PLANKS")
                 || material.startsWith("STRIPPED_")) {
             return tool.endsWith("_AXE");
         }
-        // Shovel: dirt, sand, gravel, snow.
         if (material.equals("DIRT") || material.equals("GRASS_BLOCK")
                 || material.equals("SAND") || material.equals("RED_SAND")
                 || material.equals("GRAVEL") || material.equals("CLAY")
                 || material.contains("SNOW")) {
             return tool.endsWith("_SHOVEL");
         }
-        // Shears.
         if (material.equals("COBWEB") || material.endsWith("_LEAVES")
                 || material.equals("TALL_GRASS") || material.equals("SHORT_GRASS")) {
             return tool.equals("SHEARS");

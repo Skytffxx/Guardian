@@ -15,7 +15,7 @@ public final class Messages {
 
     private final JavaPlugin plugin;
     private final File file;
-    private YamlConfiguration configuration;
+    private YamlConfiguration config;
 
     public Messages(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -29,12 +29,12 @@ public final class Messages {
         if (!file.exists()) {
             plugin.saveResource("messages.yml", false);
         }
-        this.configuration = YamlConfiguration.loadConfiguration(file);
+        config = YamlConfiguration.loadConfiguration(file);
         try (InputStream defaults = plugin.getResource("messages.yml")) {
             if (defaults != null) {
-                this.configuration.setDefaults(YamlConfiguration.loadConfiguration(
+                config.setDefaults(YamlConfiguration.loadConfiguration(
                         new InputStreamReader(defaults, StandardCharsets.UTF_8)));
-                this.configuration.options().copyDefaults(true);
+                config.options().copyDefaults(true);
             }
         } catch (IOException ignored) {
             // defaults are optional
@@ -42,7 +42,7 @@ public final class Messages {
     }
 
     public String raw(String key) {
-        return configuration.getString(key, "");
+        return config.getString(key, "");
     }
 
     public Component component(String key) {

@@ -115,9 +115,9 @@ public final class GuardianProfile implements PlayerProfile {
 
     @Override
     public ViolationLevel violations(String checkName) {
-        return violations.computeIfAbsent(checkName.toLowerCase(), key -> new ViolationLevel(
-                plugin.guardianConfig().getDouble(
-                        "violations.decay-per-second", 0.35D)));
+        return violations.computeIfAbsent(checkName.toLowerCase(),
+                key -> new ViolationLevel(
+                        plugin.guardianConfig().getDouble("violations.decay-per-second", 0.35D)));
     }
 
     @Override
@@ -132,16 +132,16 @@ public final class GuardianProfile implements PlayerProfile {
         if (isExempt(check)) {
             return violations(check.name()).value();
         }
-        String formatted = args.length == 0 ? debug : String.format(debug, args);
-        double newLevel = violations(check.name()).add(weight);
+        String msg = args.length == 0 ? debug : String.format(debug, args);
+        double level = violations(check.name()).add(weight);
 
         if (debugEnabled(check.name())) {
             sendDebug(String.format("[%s] +%.2f -> %.2f | %s",
-                    check.name(), weight, newLevel, formatted));
+                    check.name(), weight, level, msg));
         }
 
-        plugin.punishmentManager().handleFlag(this, check, newLevel, formatted);
-        return newLevel;
+        plugin.punishmentManager().handleFlag(this, check, level, msg);
+        return level;
     }
 
     @Override

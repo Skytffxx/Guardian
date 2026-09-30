@@ -11,11 +11,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Horizontal speed, ground and air, with every legit modifier modelled rather than
- * ignored: speed potions, jump boost, soul speed, depth strider, ice/slipperiness,
- * elytra, riptide, vehicles and server-side TPS lag.
- *
- * Evaluated over a rolling window: a single fast tick is never enough.
+ * Horizontal speed, ground and air, with each legit modifier modelled instead of
+ * ignored: speed, jump boost, soul speed, depth strider, ice, slime, water, ladders,
+ * jumping, plus TPS and ping compensation. Evaluated over a window, so one fast tick
+ * is never enough.
  */
 public final class SpeedCheck extends AbstractCheck {
 
@@ -30,7 +29,6 @@ public final class SpeedCheck extends AbstractCheck {
 
     @Override
     public void onMove(PlayerProfile profile, MoveData move) {
-        // Vertical/elytra/vehicle movement is somebody else's check.
         if (Boolean.TRUE.equals(profile.attribute("elytra"))
                 || Boolean.TRUE.equals(profile.attribute("vehicle"))
                 || Boolean.TRUE.equals(profile.attribute("riptide"))
@@ -58,8 +56,7 @@ public final class SpeedCheck extends AbstractCheck {
             return;
         }
 
-        int required = i("required-flags", 6);
-        if (window.countAbove(d("minimum-excess", 0.02D)) < required) {
+        if (window.countAbove(d("minimum-excess", 0.02D)) < i("required-flags", 6)) {
             return;
         }
 
@@ -74,11 +71,8 @@ public final class SpeedCheck extends AbstractCheck {
                 ? d("base-sprint", BASE_SPRINT)
                 : d("base-air", BASE_WALK);
 
-        int speedAmplifier = intAttribute(profile, "speed-amplifier", 0);
-        base *= 1.0D + 0.20D * speedAmplifier;
-
-        int jumpBoost = intAttribute(profile, "jump-boost-amplifier", 0);
-        base *= 1.0D + 0.10D * jumpBoost;
+        base *= 1.0D + 0.20D * attrInt(profile, "speed-amplifier", 0);
+        base *= 1.0D + 0.10D * attrInt(profile, "jump-boost-amplifier", 0);
 
         if (Boolean.TRUE.equals(profile.attribute("soul-speed"))) {
             base *= d("soul-speed-multiplier", 1.30D);
@@ -102,28 +96,26 @@ public final class SpeedCheck extends AbstractCheck {
             base *= d("jump-multiplier", 1.05D);
         }
 
-        // Never let a lag spike read as a cheat: scale by current TPS.
-        double tps = doubleAttribute(profile, "server-tps", 20.0D);
+        double tps = attrDouble(profile, "server-tps", 20.0D);
         if (tps < 20.0D) {
             base *= 1.0D + ((20.0D - tps) / 20.0D) * d("tps-compensation-factor", 1.35D);
         }
 
-        // Ping compensation: high-latency clients batch movement into fewer packets.
+        // High-latency clients batch movement into fewer packets.
         int ping = profile.ping();
         if (ping > 100) {
-            base *= 1.0D + Math.min(d("max-ping-compensation", 0.35D),
-                    (ping - 100) / 1000.0D);
+            base *= 1.0D + Math.min(d("max-ping-compensation", 0.35D), (ping - 100) / 1000.0D);
         }
 
         return base;
     }
 
-    private int intAttribute(PlayerProfile profile, String key, int def) {
+    private int attrInt(PlayerProfile profile, String key, int def) {
         Object value = profile.attribute(key);
         return value instanceof Number number ? number.intValue() : def;
     }
 
-    private double doubleAttribute(PlayerProfile profile, String key, double def) {
+    private double attrDouble(PlayerProfile profile, String key, double def) {
         Object value = profile.attribute(key);
         return value instanceof Number number ? number.doubleValue() : def;
     }

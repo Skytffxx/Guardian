@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public final class GuardianCommand implements CommandExecutor, TabCompleter {
 
@@ -48,6 +47,44 @@ public final class GuardianCommand implements CommandExecutor, TabCompleter {
             default -> help(sender, label);
         }
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
+                                      @NotNull String alias, @NotNull String[] args) {
+        List<String> completions = new ArrayList<>();
+        if (args.length == 1) {
+            completions.addAll(List.of("profile", "check", "alerts", "debug", "history", "reload", "help"));
+        } else if (args.length == 2) {
+            switch (args[0].toLowerCase(Locale.ROOT)) {
+                case "profile", "history" -> {
+                    for (Player player : Bukkit.getOnlinePlayers()) {
+                        completions.add(player.getName());
+                    }
+                }
+                case "check", "debug" -> {
+                    for (Check check : plugin.checkRegistry().all()) {
+                        completions.add(check.name());
+                    }
+                }
+                default -> {
+                }
+            }
+        } else if (args.length == 3 && args[0].equalsIgnoreCase("check")) {
+            completions.addAll(List.of("on", "off"));
+        }
+
+        String prefix = args[args.length - 1].toLowerCase(Locale.ROOT);
+        completions.removeIf(entry -> !entry.toLowerCase(Locale.ROOT).startsWith(prefix));
+        return completions;
+    }
+
+    public List<String> categories() {
+        List<String> result = new ArrayList<>();
+        for (CheckCategory category : CheckCategory.values()) {
+            result.add(category.key());
+        }
+        return result;
     }
 
     private void help(CommandSender sender, String label) {
@@ -207,39 +244,5 @@ public final class GuardianCommand implements CommandExecutor, TabCompleter {
         } catch (NumberFormatException exception) {
             return def;
         }
-    }
-
-    @Override
-    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command,
-                                      @NotNull String alias, @NotNull String[] args) {
-        List<String> completions = new ArrayList<>();
-        if (args.length == 1) {
-            completions.addAll(List.of("profile", "check", "alerts", "debug", "history", "reload", "help"));
-        } else if (args.length == 2) {
-            switch (args[0].toLowerCase(Locale.ROOT)) {
-                case "profile", "history" -> Bukkit.getOnlinePlayers().stream()
-                        .map(Player::getName).forEach(completions::add);
-                case "check", "debug" -> plugin.checkRegistry().all().stream()
-                        .map(Check::name).forEach(completions::add);
-                default -> {
-                }
-            }
-        } else if (args.length == 3 && args[0].equalsIgnoreCase("check")) {
-            completions.addAll(List.of("on", "off"));
-        }
-
-        String prefix = args[args.length - 1].toLowerCase(Locale.ROOT);
-        return completions.stream()
-                .filter(entry -> entry.toLowerCase(Locale.ROOT).startsWith(prefix))
-                .collect(Collectors.toList());
-    }
-
-    /** Exposed so /guardian profile can render category groupings later. */
-    public List<String> categories() {
-        List<String> result = new ArrayList<>();
-        for (CheckCategory category : CheckCategory.values()) {
-            result.add(category.key());
-        }
-        return result;
     }
 }

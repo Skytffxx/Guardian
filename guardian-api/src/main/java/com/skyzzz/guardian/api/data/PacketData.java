@@ -3,8 +3,8 @@ package com.skyzzz.guardian.api.data;
 import com.skyzzz.guardian.api.PacketDirection;
 
 /**
- * Thin envelope around a raw packet. {@code packet} stays {@link Object} so the API
- * module never depends on PacketEvents; packet-level checks in guardian-checks cast it.
+ * Thin envelope around a raw packet. The packet stays typed as {@link Object} so this
+ * module keeps no PacketEvents dependency; packet-level checks do the casting.
  */
 public record PacketData(
         Object packet,
@@ -20,9 +20,9 @@ public record PacketData(
     }
 
     /**
-     * Format-tolerant packet-name match. PacketEvents names vary by version
-     * ({@code KEEP_ALIVE}, {@code keep_alive}, {@code KeepAlive}), so both sides
-     * are lowercased with non-alphanumerics stripped before comparing.
+     * PacketEvents names the same packet {@code KEEP_ALIVE}, {@code keep_alive} or
+     * {@code KeepAlive} depending on version, so both sides are lowercased with
+     * non-alphanumerics stripped before comparing.
      */
     public boolean matchesName(String keyword) {
         if (packetName == null || keyword == null) {
